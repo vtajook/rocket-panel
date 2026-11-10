@@ -24,6 +24,12 @@
             <?= inlineIcon("add", "icon") ?>
             کاربر گروهی
         </button>
+        <?php if (!empty($ownerList)) { ?>
+        <select class="form-select d-inline-block w-auto" onchange="location.href='<?= baseUrl('users') ?>?owner='+encodeURIComponent(this.value)" title="فیلتر مالک">
+            <option value="">همه مالک‌ها</option>
+            <?php foreach ($ownerList as $o) { ?><option value="<?= htmlspecialchars($o) ?>" <?= $o === $ownerFilter ? 'selected' : '' ?>><?= htmlspecialchars($o) ?></option><?php } ?>
+        </select>
+        <?php } ?>
         <button class="btn btn-outline-danger btn-float-icon" id="btn-purge-expired" type="button">
             <?= inlineIcon("trash", "icon") ?>
             حذف منقضی‌ها

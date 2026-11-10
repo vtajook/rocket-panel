@@ -47,9 +47,19 @@ class Users extends BaseController
         enqueueStyleHeader(assets("vendor/datatable/datatables.css"));
 
         $status     = $request->getQueryParam("status");
+        if (getAdminRole() == "admin" && $request->getQueryParam("owner") !== null) {
+            $owner = trim((string) $request->getQueryParam("owner"));
+            if ($owner === "" || !db('admins')->where('username', $owner)->exists()) {
+                session()->delete("users_owner");
+            } else {
+                session()->set("users_owner", $owner);
+            }
+        }
 
         $viewData   = [];
         $viewData["activeStatus"]   = $status;
+        $viewData["ownerFilter"]    = getAdminRole() == "admin" ? (string) session()->get("users_owner") : "";
+        $viewData["ownerList"]      = getAdminRole() == "admin" ? db('admins')->orderBy('username')->pluck('username')->toArray() : [];
         $viewData["pageTitle"]      = "مدیریت کاربران";
         $viewData["viewContent"]    = "users/index.php";
         $viewData["activeMenu"]     = "users";

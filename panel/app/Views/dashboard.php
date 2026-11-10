@@ -1,3 +1,13 @@
+<?php if (!empty($agencySummary)) { enqueueStyleHeader(assets("css/agency.css")); ?>
+<a href="<?= baseUrl('agency') ?>" class="text-decoration-none">
+<div class="row g-2 mb-3">
+    <div class="col-6 col-md-3"><div class="card ag-stat"><div class="card-body p-2"><div class="ag-stat-title">نمایندگان</div><div class="ag-stat-value ag-num"><?= (int) $agencySummary['agents'] ?></div></div></div></div>
+    <div class="col-6 col-md-3"><div class="card ag-stat"><div class="card-body p-2"><div class="ag-stat-title">جمع موجودی کیف پول‌ها</div><div class="ag-stat-value ag-num"><?= number_format($agencySummary['sum']) ?></div></div></div></div>
+    <div class="col-6 col-md-3"><div class="card ag-stat"><div class="card-body p-2"><div class="ag-stat-title">فروش ۳۰ روز اخیر</div><div class="ag-stat-value ag-num"><?= (int) $agencySummary['sales30'] ?></div></div></div></div>
+    <div class="col-6 col-md-3"><div class="card ag-stat"><div class="card-body p-2"><div class="ag-stat-title">درخواست‌های باز</div><div class="ag-stat-value ag-num"><?= (int) $agencySummary['pending'] ?></div></div></div></div>
+</div>
+</a>
+<?php } ?>
 <style>
     .custom-card {
         display: flex;

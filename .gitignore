@@ -1,0 +1,16 @@
+# secrets and runtime data — never commit
+.env
+*.sqlite
+panel/.env
+panel/banner.txt
+panel/storage/logs/*.log
+panel/storage/sessions/sess_*
+panel/storage/*.json
+panel/storage/*.txt
+panel/storage/*.lock
+panel/storage/backups/
+panel/assets/backup/*.sql
+!panel/assets/backup/db.sql
+# dev
+/rig/
+node_modules/

@@ -59,7 +59,7 @@ class Updater extends BaseController
         @file_put_contents($lock, (string) time());
         @file_put_contents($this->logFile(), "[" . date("Y-m-d H:i:s") . "] شروع بروزرسانی\n");
         // fixed command, no user input
-        $cmd = "setsid nohup sudo " . self::TOOL . " --update >> " . escapeshellarg($this->logFile()) . " 2>&1 < /dev/null &";
+        $cmd = "setsid nohup sudo -n " . self::TOOL . " --update >> " . escapeshellarg($this->logFile()) . " 2>&1 < /dev/null &";
         @exec($cmd);
         Agency::log('panel.update', null, ['from' => panelVersion()]);
         return $response->withStatus(200)->withJson(["status" => "success"]);

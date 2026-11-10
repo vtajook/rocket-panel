@@ -411,12 +411,21 @@ do_install() {
     echo "SSH $sp   UDPGW $up"
 }
 
+# lets the panel's update button run the root updater (only this one command)
+ensure_update_sudo() {
+    local f=/etc/sudoers.d/rocket-panel-update
+    printf 'www-data ALL=(root) NOPASSWD: /usr/local/sbin/rocket-panel --update\n' > "$f.new"
+    chmod 440 "$f.new"
+    if visudo -cf "$f.new" >/dev/null 2>&1; then mv -f "$f.new" "$f"; else rm -f "$f.new"; red "could not install the sudo rule for the update button"; fi
+}
+
 do_update() { # panel files only
     need_root
     is_installed || { red "Panel is not installed"; echo "UPDATE-FAILED"; return 1; }
     local ver_old; ver_old=$(cat "$PANEL/VERSION" 2>/dev/null)
     fetch_code || { echo "UPDATE-FAILED"; return 1; }
     deploy_code
+    ensure_update_sudo
     chown -R www-data:www-data "$PANEL/storage"
     # only the web server is reloaded (graceful): SSH, tunnels and logged-in users are not touched
     systemctl reload apache2 2>/dev/null

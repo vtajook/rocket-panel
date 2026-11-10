@@ -179,6 +179,8 @@ class Agency extends BaseController
             $columns["phone"]     = mb_substr(trim(getArrayValue($pdata, "phone")), 0, 32);
             $columns["tg_chat"]   = mb_substr(trim(getArrayValue($pdata, "tg_chat")), 0, 32);
             $columns["note"]      = mb_substr(trim(getArrayValue($pdata, "note")), 0, 500);
+            $columns["api_allow"] = mb_substr(preg_replace('/[^0-9a-fA-F:., ]/', '', getArrayValue($pdata, "api_allow")), 0, 500);
+            $columns["api_rate"]  = max(0, (int) getArrayValue($pdata, "api_rate", 0));
             $columns["expiry"]    = 0;
             $expiry = trim(getArrayValue($pdata, "expiry"));
             if ($expiry !== "") {
@@ -316,10 +318,25 @@ class Agency extends BaseController
             }
             $row = Core::walletAdjust($agent['id'], (int) round($amount), $kind, $note);
             Core::log('wallet.' . $kind, $agent['username'], ['amount' => (int) $row['amt'], 'note' => $note]);
+            \App\Agency\Extras::notifyBoth($agent, "💰 کیف پول «" . $agent['username'] . "»: " . ((int) $row['amt'] > 0 ? "+" : "") . Core::money((int) $row['amt']) . " — موجودی: " . Core::money(Core::balance($agent['id'])));
         } catch (AgencyException $err) {
             return $this->fail($response, $err->getMessage());
         }
         return $this->ok($response, ["balance" => Core::balance($agent['id'])]);
+    }
+
+    public function freezeAgent($request, $response, $args)
+    {
+        $agent = Core::find(intval($args["id"]));
+        if (!$agent || Core::isAdmin($agent)) {
+            return $this->fail($response, "نماینده یافت نشد");
+        }
+        $freeze = getArrayValue($request->getParsedBody(), "mode", "freeze") === "freeze";
+        db('admins')->where('id', $agent['id'])->update(['frozen' => $freeze ? 1 : 0]);
+        Core::log($freeze ? 'agent.freeze' : 'agent.unfreeze', $agent['username']);
+        \App\Agency\Extras::notifyBoth($agent, ($freeze ? "⏸ اکانت‌های «" : "▶️ اکانت‌های «") . $agent['username'] . ($freeze ? "» متوقف شد" : "» دوباره فعال شد"));
+        Core::flush();
+        return $this->ok($response);
     }
 
     public function banAgent($request, $response, $args)
@@ -493,6 +510,12 @@ class Agency extends BaseController
                 $settings['refund'][$key] = $value;
             }
         }
+
+        $settings['tg_token']   = trim(getArrayValue($pdata, "tg_token"));
+        $settings['tg_chat']    = preg_replace('/[^0-9-]/', '', getArrayValue($pdata, "tg_chat"));
+        $lowBal = $this->num(getArrayValue($pdata, "low_balance"));
+        $settings['low_balance'] = ($lowBal !== null && $lowBal > 0) ? (int) $lowBal : 0;
+        $settings['notify_sale'] = getArrayValue($pdata, "notify_sale", "0") == "1" ? 1 : 0;
 
         Core::saveSettings($settings);
         Core::log('settings.save');

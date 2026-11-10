@@ -69,6 +69,24 @@
                             گردش حساب
                         </a>
                     </li>
+                    <li>
+                        <a href="<?= baseUrl("agency/my/customers") ?>" class="nav-link <?= $activeMenu == "agency-my-customers" ? "active" : "link-body-emphasis" ?>">
+                            <?= inlineIcon("users", "menu-icon") ?>
+                            مشتریان من
+                        </a>
+                    </li>
+                    <li>
+                        <a href="<?= baseUrl("agency/my/requests") ?>" class="nav-link <?= $activeMenu == "agency-my-requests" ? "active" : "link-body-emphasis" ?>">
+                            <?= inlineIcon("earth-americas", "menu-icon") ?>
+                            درخواست انتقال
+                        </a>
+                    </li>
+                    <li>
+                        <a href="<?= baseUrl("agency/my/keys") ?>" class="nav-link <?= $activeMenu == "agency-my-keys" ? "active" : "link-body-emphasis" ?>">
+                            <?= inlineIcon("gear", "menu-icon") ?>
+                            کلید API
+                        </a>
+                    </li>
                 <?php } ?>
                 <li>
                     <a href="<?= baseUrl("logout") ?>" class="nav-link link-body-emphasis ">

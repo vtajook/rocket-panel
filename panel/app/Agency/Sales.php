@@ -97,6 +97,11 @@ class Sales
                 'plan' => $quote['plan'] ? $quote['plan']['name'] : null,
             ]);
 
+            $s = Agency::settings();
+            if (!empty($s['notify_sale'])) {
+                Extras::notifyBoth($agent, "🛒 فروش «" . $agent['username'] . "»: " . $pdata['username'] . " — " . Agency::money($quote['cost']), true);
+            }
+
             return $quote;
         });
     }

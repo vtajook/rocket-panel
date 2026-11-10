@@ -83,6 +83,16 @@ $refund = $settings['refund'];
             <div class="col-4 col-md-3"><label class="form-label small">چند درصد برگردد</label><input name="refund_percent" class="form-control form-control-sm ag-num" inputmode="numeric" value="<?= $n($refund['percent']) ?>"></div>
         </div>
     </div>
+    <div class="ag-form-section">
+        <h6>اعلان تلگرام</h6>
+        <div class="row g-2">
+            <div class="col-md-5"><label class="form-label small">توکن ربات</label><input name="tg_token" class="form-control form-control-sm" dir="ltr" autocomplete="off" value="<?= $e(isset($settings['tg_token']) ? $settings['tg_token'] : '') ?>"></div>
+            <div class="col-md-3"><label class="form-label small">آیدی عددی مدیر</label><input name="tg_chat" class="form-control form-control-sm ag-num" value="<?= $e(isset($settings['tg_chat']) ? $settings['tg_chat'] : '') ?>"></div>
+            <div class="col-md-2"><label class="form-label small">هشدار موجودی زیر</label><input name="low_balance" class="form-control form-control-sm ag-num" inputmode="numeric" value="<?= $n(isset($settings['low_balance']) ? $settings['low_balance'] : 0) ?>"></div>
+            <div class="col-md-2"><label class="form-label small">اعلان هر فروش</label><select name="notify_sale" class="form-select form-select-sm"><option value="0">خاموش</option><option value="1" <?= !empty($settings['notify_sale']) ? 'selected' : '' ?>>روشن</option></select></div>
+        </div>
+        <div class="ag-hint mt-1">اعلان کم‌شدن موجودی، شارژ کیف پول، درخواست انتقال و توقف اکانت‌ها. هر نماینده حداکثر هر ۶ ساعت یک هشدار موجودی می‌گیرد.</div>
+    </div>
     <button class="btn btn-primary">ذخیره تنظیمات</button>
 </form>
 <script>

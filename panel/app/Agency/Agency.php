@@ -949,6 +949,10 @@ class Agency
             }
         });
 
+        try {
+            Extras::lowBalanceCheck($seller['id']);
+        } catch (\Throwable $e) {
+        }
         return $saleId;
     }
 

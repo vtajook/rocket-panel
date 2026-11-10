@@ -48,6 +48,20 @@ class PanelAuth
       $pass = true;
     } else {
       $userId = session()->get("admin_login");
+      if (!$userId && strpos($uri, 'ajax/') === 0) {
+        // API key (X-API-Key or Bearer) – only for the ajax endpoints, never creates a session
+        $key = $request->getHeaderLine('X-API-Key');
+        if ($key === '' && preg_match('/^Bearer\s+(vl_[0-9a-f]{48})$/', $request->getHeaderLine('Authorization'), $m)) {
+          $key = $m[1];
+        }
+        if ($key !== '') {
+          $ip = isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : '';
+          $userId = \App\Agency\Extras::authenticate($key, $ip, $request->getMethod(), $uri);
+          if (!$userId) {
+            return $response->withStatus(401)->withJson(["status" => "error", "messages" => ["کلید API نامعتبر است"]]);
+          }
+        }
+      }
       if ($userId) {
         $aModal = new \App\Models\Admins();
         $userInfo = $aModal->getInfo($userId);

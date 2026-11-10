@@ -69,6 +69,15 @@ $saveUrl = baseUrl('agency/save' . ($isNew ? '' : '/' . $agent['id']));
                     </form>
                 <?php } ?>
             </div>
+            <div class="ag-form-section">
+                <h6>توقف اکانت‌ها</h6>
+                <form class="ag-form" action="<?= baseUrl('agency/agent/' . $agent['id'] . '/freeze') ?>" data-confirm="<?= !empty($agent['frozen']) ? 'اکانت‌ها دوباره فعال شوند؟' : 'اتصال همه اکانت‌های این نماینده و زیرنماینده‌هایش قطع می‌شود و تا رفع توقف نمی‌توانند وصل شوند. ادامه می‌دهید؟' ?>">
+                    <input type="hidden" name="mode" value="<?= !empty($agent['frozen']) ? 'unfreeze' : 'freeze' ?>">
+                    <?php if (!empty($agent['frozen'])) { ?><p class="mb-2">اکانت‌های این نماینده الان متوقف است.</p><?php } ?>
+                    <button class="btn btn-sm btn-<?= !empty($agent['frozen']) ? 'success' : 'outline-warning' ?>"><?= !empty($agent['frozen']) ? 'رفع توقف اکانت‌ها' : 'توقف همه اکانت‌ها' ?></button>
+                    <span class="ag-hint">خود اکانت‌ها پاک یا غیرفعال نمی‌شوند؛ فقط وصل شدنشان بسته می‌شود.</span>
+                </form>
+            </div>
         </div>
     </div>
 <?php } ?>
@@ -112,6 +121,18 @@ $saveUrl = baseUrl('agency/save' . ($isNew ? '' : '/' . $agent['id']));
             <div class="col-md-3">
                 <label class="form-label">موبایل</label>
                 <input name="phone" class="form-control ag-num" value="<?= $isNew ? '' : $e($agent['phone']) ?>">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">آیدی تلگرام عددی (اعلان‌ها)</label>
+                <input name="tg_chat" class="form-control ag-num" value="<?= $isNew ? '' : $e($agent['tg_chat']) ?>">
+            </div>
+            <div class="col-md-5">
+                <label class="form-label">IPهای مجاز کلید API (جدا با فاصله؛ خالی = همه)</label>
+                <input name="api_allow" class="form-control ag-num" dir="ltr" value="<?= $isNew ? '' : $e($agent['api_allow']) ?>">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">سقف درخواست API در دقیقه (۰ = بی‌نهایت)</label>
+                <input name="api_rate" type="number" min="0" class="form-control ag-num" value="<?= $isNew ? 0 : (int) $agent['api_rate'] ?>">
             </div>
             <div class="col-12">
                 <label class="form-label">یادداشت (فقط مدیر می‌بیند)</label>

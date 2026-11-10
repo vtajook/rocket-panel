@@ -1,3 +1,19 @@
+<div class="alert alert-info d-flex flex-wrap align-items-center gap-2">
+    <span>اکانت‌هایی که در دیتابیس هستند ولی روی سرور ساخته نشده‌اند (مثلاً بعد از بازیابی یا جابجایی) هر یک دقیقه خودکار ساخته می‌شوند. برای ساخت فوری:</span>
+    <button type="button" class="btn btn-sm btn-primary" id="btn-sync-users">ساخت اکانت‌های ناقص روی سرور</button>
+    <span id="sync-users-msg" class="small"></span>
+</div>
+<script>
+    $(function() {
+        $("#btn-sync-users").on("click", function() {
+            var btn = $(this).prop("disabled", true);
+            $("#sync-users-msg").text("در حال ساخت...");
+            $.post(baseUrl("ajax/settings/sync-users")).done(function(r) {
+                $("#sync-users-msg").text("ساخته شد: " + r.created + (r.missing > 0 ? " — باقی‌مانده: " + r.missing + " (دوباره بزنید یا صبر کنید)" : r.missing < 0 ? " (یک عملیات دیگر در حال اجراست)" : " — همه اکانت‌ها روی سرور هستند"));
+            }).fail(function() { $("#sync-users-msg").text("خطا"); }).always(function() { btn.prop("disabled", false); });
+        });
+    });
+</script>
 <div class="row">
     <div class="col-md-5">
         <div class="card">

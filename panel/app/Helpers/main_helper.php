@@ -441,28 +441,21 @@ function userStatusLabel($status)
 }
 
 
+function panelVersion()
+{
+    $v = @trim((string) @file_get_contents(PATH . DS . "VERSION"));
+    return preg_match('/^[0-9][0-9A-Za-z.\-]*$/', $v) ? $v : "2.0.0";
+}
+
 function githubLastVersion()
 {
     $url = getConfig("versionUrl");
-
-    if ($url) {
-        $context = stream_context_create(
-            array(
-                "http" => array(
-                    "header" => "User-Agent: Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36"
-                )
-            )
-        );
-        $urlContent = @file_get_contents($url, false, $context);
-        if (!empty($urlContent)) {
-            $urlContent = json_decode($urlContent, true);
-            if (!empty($urlContent["tag_name"])) {
-                $lastVersion = $urlContent["tag_name"];
-                return number_format((float)$lastVersion, 1, '.', '');
-            }
-        }
+    if (!$url) {
+        return false;
     }
-    return false;
+    $context = stream_context_create(array("http" => array("timeout" => 8, "header" => "User-Agent: rocket-panel\r\n")));
+    $text = trim((string) @file_get_contents($url, false, $context));
+    return preg_match('/^[0-9][0-9A-Za-z.\-]*$/', $text) ? $text : false;
 }
 
 function getServerName()

@@ -44,6 +44,12 @@
                         </a>
                     </li>
                     <li>
+                        <a href="<?= baseUrl("update") ?>" class="nav-link <?= $activeMenu == "update" ? "active" : "link-body-emphasis" ?>">
+                            <?= inlineIcon("power-off", "menu-icon") ?>
+                            بروزرسانی پنل
+                        </a>
+                    </li>
+                    <li>
                         <a href="<?= baseUrl("settings") ?>" class="nav-link <?= $activeMenu == "settings" ? "active" : "link-body-emphasis" ?>">
                             <?= inlineIcon("gear", "menu-icon") ?>
                             تنظیمات
@@ -74,7 +80,7 @@
             <?php if ($showUpNotice) { ?>
                 <div class="new-version-container mt-3">
                     <span class="winking-circle"></span>
-                    <a target="_blank" class="text-info ms-2 d-block" href="https://github.com/rocket-ap/rocket-ssh" >نسخه جدید!</a>
+                    <a class="text-info ms-2 d-block" href="<?= baseUrl($userRole == "admin" ? "update" : "dashboard") ?>">نسخه جدید!</a>
                 </div>
             <?php } ?>
             <div class="border-top py-2 small text-center">

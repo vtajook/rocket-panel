@@ -14,3 +14,4 @@ panel/assets/backup/*.sql
 # dev
 /rig/
 node_modules/
+panel/storage/*.ver

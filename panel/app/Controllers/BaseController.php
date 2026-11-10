@@ -32,14 +32,10 @@ class BaseController
         }
 
         $this->data["cacheDate"] = date("Y-m");
-        $appVersion =  \App\Models\Settings::getSetting("app_version");
-
-        if ($appVersion) {
-            $this->data["appVersion"] = number_format((float)$appVersion, 1, '.', '');
-            $lastVersion =  \App\Models\Settings::getSetting("app_last_version");
-            if ($lastVersion && $lastVersion > $appVersion) {
-                $this->data["showUpNotice"] = true;
-            }
+        $this->data["appVersion"] = panelVersion();
+        $lastVersion = @trim((string) @file_get_contents(PATH_STORAGE . DS . "last_version.txt"));
+        if ($lastVersion !== '' && version_compare($lastVersion, panelVersion(), '>')) {
+            $this->data["showUpNotice"] = true;
         }
     }
 

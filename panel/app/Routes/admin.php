@@ -31,6 +31,8 @@ $adminPanel = $app->group('', function () use ($app) {
         $app->get('/filtering',                  'App\Controllers\Pages:filtering');
     });
 
+    $app->get('/update',                        'App\Controllers\Updater:index');
+
     // agency (resellers). Manager-only except /agency/my... and /agency/back
     $app->group('/agency', function () use ($app) {
         $app->get('[/]',                        'App\Controllers\Agency:index');
@@ -57,6 +59,8 @@ $adminPanel = $app->group('', function () use ($app) {
     });
 
     $app->group('/ajax', function () use ($app) {
+        $app->post('/update/run',               'App\Controllers\Updater:ajaxRun');
+        $app->get('/update/log',                'App\Controllers\Updater:ajaxLog');
         $app->post('/reboot-server',            'App\Controllers\Pages:ajaxRebootServer');
         $app->get('/is-ready',                  'App\Controllers\Pages:ajaxIsReady');
 
@@ -96,6 +100,7 @@ $adminPanel = $app->group('', function () use ($app) {
 
             $app->post('',                      'App\Controllers\Settings:ajaxSaveSettings');
             $app->post('/users-panel',          'App\Controllers\Settings:ajaxSaveUsersPanel');
+            $app->post('/sync-users',           'App\Controllers\Settings:ajaxSyncUsers');
             $app->group('/public-api', function () use ($app) {
                 $app->post('',                  'App\Controllers\Settings:ajaxAaddPublicApi');
                 $app->post('/list',             'App\Controllers\Settings:ajaxListPublicApi');

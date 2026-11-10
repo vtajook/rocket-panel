@@ -13,7 +13,8 @@ $configs['url'] = $root;
 $configs['timezone'] = 'Asia/Tehran';
 
 $configs['show_errors']     = true;
-$configs['versionUrl']      = "https://api.github.com/repos/mahmoud-ap/rocket-ssh/releases/latest";
+$configs['versionUrl']      = "https://raw.githubusercontent.com/vtajook/rocket-panel/main/panel/VERSION";
+$configs['repoUrl']         = "https://github.com/vtajook/rocket-panel";
 
 $configs['access_control']['allow_origin'] = '*';
 $configs['access_control']['allow_headers'] = '*';

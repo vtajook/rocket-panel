@@ -230,6 +230,12 @@ class Settings extends BaseController
         }
     }
 
+    public function ajaxSyncUsers($request, $response, $args)
+    {
+        $result = (new \App\Models\Backup())->syncSysUsers(150);
+        return $response->withStatus(200)->withJson(["status" => "success"] + $result);
+    }
+
     public function ajaxCreateBackup($request, $response, $args)
     {
         $appName        = getenv("APP_NAME");

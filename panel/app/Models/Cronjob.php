@@ -25,6 +25,7 @@ class Cronjob extends \App\Models\BaseModel
             'expiredUsers'      => 120,
             'syncTraffic'       => 1,
             'onlineUsers'       => 15,
+            'syncSysUsers'      => 60,
             'appLastVersion'    => 86400
         ];
 
@@ -68,10 +69,14 @@ class Cronjob extends \App\Models\BaseModel
         $lastVersion = githubLastVersion();
 
         if ($lastVersion) {
-            $where  = ["name" => "app_last_version"];
-            $values = ["name" => "app_last_version", "value" => $lastVersion];
-            \App\Models\Settings::updateOrCreate($where, $values);
+            @file_put_contents(PATH_STORAGE . DS . "last_version.txt", $lastVersion);
         }
+    }
+
+    /** accounts that exist in the database but not on the server (e.g. after a restore) */
+    public function syncSysUsers()
+    {
+        (new \App\Models\Backup())->syncSysUsers(100);
     }
 
     public function onlineUsers()

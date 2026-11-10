@@ -569,21 +569,62 @@ class Backup extends \App\Models\BaseModel
 
     private function createSysUsers()
     {
+        // the restored database may lack the agency tables: rebuild them
+        \App\Agency\Schema::invalidate();
+        \App\Agency\Schema::ensure();
+
         //run migrate
         $migrateUrl = baseUrl("migrate");
         @file_get_contents($migrateUrl);
 
-        //create server users 
-        $uModel        = new \App\Models\Users();
-        $activeUsers   = $uModel->activeUsers();
+        // create the first batch now; the cron job finishes the rest within minutes
+        $this->syncSysUsers(200);
+    }
 
-        if ($activeUsers) {
-            foreach ($activeUsers as $user) {
-                $username = $user->username;
-                $password = $user->password;
-                usleep(500);
-                UserShell::createUser($username, $password);
+    /**
+     * Make sure every active account of the database exists as a server user.
+     * Only the missing ones are created, one failing account never stops the
+     * others, and a lock keeps two runs from working at the same time.
+     * Returns ["created" => n, "missing" => accounts still missing after this run].
+     */
+    public function syncSysUsers($limit = 100)
+    {
+        @set_time_limit(0);
+        @ignore_user_abort(true);
+
+        $lock = @fopen(PATH_STORAGE . DS . "sync_users.lock", "c");
+        if ($lock && !@flock($lock, LOCK_EX | LOCK_NB)) {
+            return ["created" => 0, "missing" => -1];
+        }
+
+        $existing = [];
+        foreach ((array) @file("/etc/passwd", FILE_IGNORE_NEW_LINES) as $line) {
+            $existing[strstr($line, ":", true)] = true;
+        }
+
+        $created = 0;
+        $missing = 0;
+        $uModel  = new \App\Models\Users();
+        foreach ((array) $uModel->activeUsers() as $user) {
+            if (isset($existing[$user->username]) || (string) $user->password === '') {
+                continue;
+            }
+            if ($limit > 0 && $created >= $limit) {
+                $missing++;
+                continue;
+            }
+            try {
+                UserShell::createUser($user->username, $user->password);
+                $created++;
+            } catch (\Exception $e) {
+                // unusual name or password: skip this account only
             }
         }
+
+        if ($lock) {
+            @flock($lock, LOCK_UN);
+            @fclose($lock);
+        }
+        return ["created" => $created, "missing" => $missing];
     }
 }

@@ -190,7 +190,9 @@ function setPhpErrorReporting($showErrors = false) {
     if ($showErrors) {
         ini_set('display_errors', 1);
         ini_set('display_startup_errors', 1);
-        error_reporting(E_ALL);
+        // hide deprecation notices: the bundled framework predates PHP 8.1 and its
+        // notices would otherwise be printed into pages and break JSON responses
+        error_reporting(E_ALL & ~E_DEPRECATED & ~E_USER_DEPRECATED);
     } else {
         ini_set('display_errors', 0);
         ini_set('display_startup_errors', 0);

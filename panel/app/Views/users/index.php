@@ -24,6 +24,10 @@
             <?= inlineIcon("add", "icon") ?>
             کاربر گروهی
         </button>
+        <button class="btn btn-outline-danger btn-float-icon" id="btn-purge-expired" type="button">
+            <?= inlineIcon("trash", "icon") ?>
+            حذف منقضی‌ها
+        </button>
         <button class="btn btn-danger btn-float-icon" style="display: none;" id="btn-bulk-delete">
             <?= inlineIcon("trash", "icon") ?>
             حذف گروهی
@@ -146,4 +150,25 @@
 <script>
     var activeStatus = "<?= $activeStatus ?>";
     var tablePageLength = 25;
+</script>
+<script>
+    $(function() {
+        $("#btn-purge-expired").on("click", function() {
+            var btn = $(this).prop("disabled", true);
+            var url = baseUrl("ajax/users/purge-expired");
+            $.post(url, {dry: 1}).done(function(r) {
+                btn.prop("disabled", false);
+                if (!r.count) { alert("اکانت منقضی‌شده‌ای وجود ندارد."); return; }
+                if (!confirm(r.count + " اکانت منقضی (تاریخ یا حجم) برای همیشه از پنل و سرور حذف می‌شود. ادامه می‌دهید؟")) { return; }
+                btn.prop("disabled", true);
+                $.post(url, {}).done(function(x) {
+                    alert(x.count + " اکانت منقضی حذف شد.");
+                    location.reload();
+                }).fail(function(xhr) {
+                    var m = xhr.responseJSON && xhr.responseJSON.messages ? xhr.responseJSON.messages[0] : "خطا";
+                    alert(m); btn.prop("disabled", false);
+                });
+            }).fail(function() { btn.prop("disabled", false); alert("خطا در ارتباط با پنل"); });
+        });
+    });
 </script>

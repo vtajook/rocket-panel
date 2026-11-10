@@ -32,6 +32,12 @@
                 </li>
                 <?php if ($userRole == "admin") { ?>
                     <li>
+                        <a href="<?= baseUrl("agency") ?>" class="nav-link <?= strpos((string) $activeMenu, "agency") === 0 ? "active" : "link-body-emphasis" ?>">
+                            <?= inlineIcon("users-gear", "menu-icon") ?>
+                            نمایندگان و مالی
+                        </a>
+                    </li>
+                    <li>
                         <a href="<?= baseUrl("admins") ?>" class="nav-link <?= $activeMenu == "admins" ? "active" : "link-body-emphasis" ?>">
                             <?= inlineIcon("users-gear", "menu-icon") ?>
                             کاربران ادمین
@@ -41,6 +47,20 @@
                         <a href="<?= baseUrl("settings") ?>" class="nav-link <?= $activeMenu == "settings" ? "active" : "link-body-emphasis" ?>">
                             <?= inlineIcon("gear", "menu-icon") ?>
                             تنظیمات
+                        </a>
+                    </li>
+                <?php } ?>
+                <?php if ($userRole != "admin") { ?>
+                    <li>
+                        <a href="<?= baseUrl("agency/my") ?>" class="nav-link <?= $activeMenu == "agency-my" ? "active" : "link-body-emphasis" ?>">
+                            <?= inlineIcon("gear", "menu-icon") ?>
+                            کیف پول من
+                        </a>
+                    </li>
+                    <li>
+                        <a href="<?= baseUrl("agency/my/ledger") ?>" class="nav-link <?= $activeMenu == "agency-my-ledger" ? "active" : "link-body-emphasis" ?>">
+                            <?= inlineIcon("dashboard", "menu-icon") ?>
+                            گردش حساب
                         </a>
                     </li>
                 <?php } ?>

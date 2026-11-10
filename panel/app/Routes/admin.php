@@ -31,12 +31,38 @@ $adminPanel = $app->group('', function () use ($app) {
         $app->get('/filtering',                  'App\Controllers\Pages:filtering');
     });
 
+    // agency (resellers). Manager-only except /agency/my... and /agency/back
+    $app->group('/agency', function () use ($app) {
+        $app->get('[/]',                        'App\Controllers\Agency:index');
+        $app->get('/new',                       'App\Controllers\Agency:agentPage');
+        $app->get('/agent/{id:[0-9]+}',         'App\Controllers\Agency:agentPage');
+        $app->post('/save[/{id:[0-9]+}]',       'App\Controllers\Agency:saveAgent');
+        $app->post('/agent/{id:[0-9]+}/wallet', 'App\Controllers\Agency:walletAdjust');
+        $app->post('/agent/{id:[0-9]+}/ban',    'App\Controllers\Agency:banAgent');
+        $app->post('/agent/{id:[0-9]+}/delete', 'App\Controllers\Agency:deleteAgent');
+        $app->post('/agent/{id:[0-9]+}/transfer', 'App\Controllers\Agency:transferAccounts');
+        $app->post('/agent/{id:[0-9]+}/login',  'App\Controllers\Agency:impersonate');
+        $app->get('/back',                      'App\Controllers\Agency:impersonateBack');
+        $app->get('/plans',                     'App\Controllers\Agency:plansPage');
+        $app->post('/plans/save',               'App\Controllers\Agency:savePlan');
+        $app->post('/plans/{id:[0-9]+}/delete', 'App\Controllers\Agency:deletePlan');
+        $app->post('/settings',                 'App\Controllers\Agency:saveSettings');
+        $app->get('/ledger',                    'App\Controllers\Agency:ledgerPage');
+        $app->get('/activity',                  'App\Controllers\Agency:activityPage');
+        $app->get('/reports',                   'App\Controllers\Agency:reportsPage');
+        $app->get('/my',                        'App\Controllers\Agency:myPage');
+        $app->get('/my/ledger',                 'App\Controllers\Agency:myLedger');
+        $app->post('/my/password',              'App\Controllers\Agency:myPassword');
+        $app->post('/my/quote',                 'App\Controllers\Agency:myQuote');
+    });
+
     $app->group('/ajax', function () use ($app) {
         $app->post('/reboot-server',            'App\Controllers\Pages:ajaxRebootServer');
         $app->get('/is-ready',                  'App\Controllers\Pages:ajaxIsReady');
 
         $app->group('/users', function () use ($app) {
             $app->post('',                      'App\Controllers\Users:ajaxAddUser');
+            $app->post('/purge-expired',        'App\Controllers\Users:ajaxPurgeExpired');
             $app->post('/kill-pid',             'App\Controllers\Users:ajaxKillPidUsers');
             $app->post('/list',                 'App\Controllers\Users:ajaxUsersList');
             $app->post('/online-list',          'App\Controllers\Users:ajaxUsersOnlinesList');

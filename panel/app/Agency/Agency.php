@@ -1110,6 +1110,7 @@ class Agency
         'user.renew'       => 'تمدید اکانت',
         'user.edit'        => 'ویرایش اکانت',
         'user.delete'      => 'حذف اکانت',
+        'user.purge'       => 'حذف گروهی منقضی‌ها',
         'user.toggle'      => 'فعال / غیرفعال کردن اکانت',
         'user.kill'        => 'قطع اتصال کاربر',
         'user.transfer'    => 'انتقال اکانت',

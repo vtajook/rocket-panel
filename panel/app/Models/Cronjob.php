@@ -117,7 +117,7 @@ class Cronjob extends \App\Models\BaseModel
 
                     if ($userInfo) {
                         if ($multiuser && count($users) > $limitUsers) {
-                            UserShell::disableMultiUser($username);
+                            UserShell::disableMultiUser($username, $users, $limitUsers);
                         }
                     }
                 }

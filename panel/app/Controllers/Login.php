@@ -41,7 +41,21 @@ class Login extends BaseController
             $userId       = $result->id;
             $sessionName  = "admin_login";
 
+            // a disabled / banned reseller (or one under a disabled parent) may not sign in
+            $agent  = \App\Agency\Agency::find($userId);
+            $reason = \App\Agency\Agency::blockReason($agent);
+            if ($reason !== '') {
+                return $response->withStatus(403)->withJson(["status" => "error", "messages" => [$reason]]);
+            }
+
             session()->set($sessionName, $userId);
+            session()->delete("imp_admin");
+            session()->set("token_ver", (int) $agent['token_ver']);
+            db('admins')->where('id', $userId)->update(['last_login' => time(), 'last_ip' => substr((string) userIPAddress(), 0, 45)]);
+            if ($agent['role'] !== 'admin') {
+                $this->cont["userInfo"] = $result;
+                \App\Agency\Agency::log('login', $agent['username']);
+            }
 
             if (isset($pdata['remember'])) {
                 $sessName = getConfig("session")["name"];

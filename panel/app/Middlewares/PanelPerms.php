@@ -37,38 +37,61 @@ class PanelPerms
     }
 
 
+    /**
+     * Everything is manager-only unless it is listed here. A reseller gets the
+     * account pages (which enforce ownership themselves) and its own agency pages.
+     */
+    private $agentAllowed = array(
+        '',
+        'dashboard',
+        'logout',
+        'users',
+        'users/online',
+        'ajax/users',
+        'ajax/users/list',
+        'ajax/users/online-list',
+        'ajax/users/kill-pid',
+        'ajax/users/purge-expired',
+        'ajax/users/bulk/create',
+        'ajax/users/bulk/delete',
+        'ajax/users/\\d+',
+        'ajax/users/\\d+/toggle-active',
+        'ajax/users/\\d+/renewal',
+        'ajax-views/users/add',
+        'ajax-views/users/bulk-add',
+        'ajax-views/users/\\d+/edit',
+        'ajax-views/users/\\d+/info',
+        'agency/my(/.*)?',
+        'agency/back',
+    );
+
     public function __invoke($request, $response, $next)
     {
         $uri = $request->getUri()->getPath();
-        $uri = ltrim($uri, '/');
+        $uri = trim($uri, '/');
 
-        $pass = false;
-        if ($this->excludeCheck($uri)) {
-            $pass = true;
-        } else {
+        $userInfo = $request->getAttribute('userInfo');
+        $role     = $userInfo ? $userInfo->role : '';
 
-            $userInfo     = $request->getAttribute('userInfo');
-            $role         = $userInfo->role;
-            $notValidUrl = [
-                "settings",
-                "admins",
-            ];
-            if ($role != "admin") {
-                $passShow = true;
-                foreach ($notValidUrl  as  $value) {
-                    if (preg_match("|^" . $value . "$|is", $uri)) {
-                        $passShow = false;
-                    }
-                }
-                if (!$passShow) {
-                    return $response->withStatus(302)->withHeader("location", baseUrl("/dashboard"));
+        if ($role != "admin") {
+            $allowed = false;
+            foreach ($this->agentAllowed as $pattern) {
+                if (preg_match("#^" . $pattern . "$#i", $uri)) {
+                    $allowed = true;
+                    break;
                 }
             }
-            $pass = true;
+            if (!$allowed) {
+                if (strpos($uri, 'ajax') === 0 || strpos($uri, 'agency') === 0) {
+                    return $response->withStatus(403)->withJson([
+                        "status"   => "error",
+                        "messages" => ["شما به این بخش دسترسی ندارید"],
+                    ]);
+                }
+                return $response->withStatus(302)->withHeader("location", baseUrl("/dashboard"));
+            }
         }
-        if ($pass) {
-            $response = $next($request, $response);
-            return $response;
-        }
+
+        return $next($request, $response);
     }
 }

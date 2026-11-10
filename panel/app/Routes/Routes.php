@@ -9,6 +9,12 @@ if (!defined('PATH')) die();
 
 loadHelpers("main");
 
+// agency module: create its tables/columns on first run (idempotent, adds only)
+try {
+	\App\Agency\Schema::ensure();
+} catch (\Exception $e) {
+}
+
 $app->add(new \App\Middlewares\OptionsMethodCheck);
 
 $uController = new \App\Controllers\Users($container);

@@ -1,0 +1,17 @@
+/* agency module */
+.ag-table { font-size: 13px; }
+.ag-table th { white-space: nowrap; font-weight: 600; }
+.ag-table td { vertical-align: middle; }
+.ag-num { direction: ltr; unicode-bidi: embed; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ag-neg { color: #d6293e; }
+.ag-pos { color: #0a8f5b; }
+.ag-stat { border-radius: .6rem; }
+.ag-stat .ag-stat-title { font-size: 12px; opacity: .75; }
+.ag-stat .ag-stat-value { font-size: 18px; font-weight: 700; }
+.ag-indent { display: inline-block; width: 18px; opacity: .5; }
+.ag-toast { position: fixed; top: 14px; left: 50%; transform: translateX(-50%); z-index: 3000; min-width: 260px; max-width: 92vw; text-align: center; box-shadow: 0 6px 24px rgba(0,0,0,.2); }
+.ag-imp-bar { background: #ffc107; color: #222; padding: 6px 12px; border-radius: .5rem; font-size: 13px; }
+.ag-form-section { border: 1px solid var(--bs-border-color); border-radius: .6rem; padding: 14px; margin-bottom: 14px; background: var(--bs-body-bg); }
+.ag-form-section > h6 { font-weight: 700; margin-bottom: 12px; }
+.ag-hint { font-size: 12px; opacity: .7; }
+@media (max-width: 768px) { .ag-table { font-size: 12px; } }

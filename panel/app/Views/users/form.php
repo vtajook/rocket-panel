@@ -26,6 +26,10 @@ if ($traffic) {
 }
 ?>
 
+<?php
+$agMe    = (getAdminRole() != "admin") ? \App\Agency\Agency::me() : null;
+$agPlans = ($agMe && !$userId) ? \App\Agency\Agency::plansFor($agMe) : [];
+?>
 <div class="modal-dialog modal-lg modal-dialog-scrollable">
     <div class="modal-content">
         <div class="modal-header">
@@ -44,6 +48,20 @@ if ($traffic) {
         </div>
         <div class="modal-body">
             <form id="user-form" method="<?= $formMethod ?>" action="<?= $formAction ?>">
+                <?php if ($agMe && !$userId) { ?>
+                    <div class="form-group mb-2">
+                        <?php if ($agPlans) { ?>
+                            <label class="form-label">پلن</label>
+                            <select name="plan_id" id="ag-plan" class="form-select">
+                                <option value="">انتخاب دستی</option>
+                                <?php foreach ($agPlans as $pl) { ?>
+                                    <option value="<?= (int) $pl['id'] ?>" data-days="<?= (int) $pl['days'] ?>" data-devices="<?= (int) $pl['devices'] ?>"><?= htmlspecialchars($pl['name']) ?> — <?= (int) $pl['days'] ?> روز</option>
+                                <?php } ?>
+                            </select>
+                        <?php } ?>
+                        <div class="form-text text-info" id="ag-quote"></div>
+                    </div>
+                <?php } ?>
                 <div class="row">
                     <div class="col-lg-6">
                         <div class="form-group mb-2">
@@ -158,3 +176,31 @@ if ($traffic) {
     var formMode = "<?= !$userId ? "add" : "edit" ?>";
     window.initUsersForm(formMode);
 </script>
+<?php if ($agMe && !$userId) { ?>
+<script>
+    (function() {
+        var $f = $("#user-form"), timer = null;
+        function quote() {
+            var t = $f.find("[name=expiry_type]:checked").val();
+            $.post(baseUrl("agency/my/quote"), {
+                type: "create", plan_id: $("#ag-plan").val() || 0,
+                days: $f.find("[name=exp_days]").val() || 0, gb: $f.find("[name=traffic]").val() || 0,
+                devices: $f.find("[name=limit_users]").val() || 1
+            }).done(function(r) { $("#ag-quote").text(r.text || ""); })
+              .fail(function(x) { $("#ag-quote").text(x.responseJSON && x.responseJSON.messages ? x.responseJSON.messages[0] : ""); });
+        }
+        function later() { clearTimeout(timer); timer = setTimeout(quote, 300); }
+        $("#ag-plan").on("change", function() {
+            var o = $(this).find(":selected");
+            if (o.val()) {
+                $f.find("[name=expiry_type][value=days]").prop("checked", true).trigger("change");
+                $f.find("[name=exp_days]").val(o.data("days"));
+                $f.find("[name=limit_users]").val(o.data("devices"));
+            }
+            later();
+        });
+        $f.on("input change", "[name=exp_days],[name=limit_users],[name=traffic]", later);
+        later();
+    })();
+</script>
+<?php } ?>

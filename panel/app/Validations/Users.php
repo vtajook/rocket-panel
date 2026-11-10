@@ -26,9 +26,7 @@ class Users
                 $result["messages"][] = "اطلاعات کاربر یافت نشد";
                 return $result;
             } else {
-                $adminRole    = getAdminRole();
-                $adminUname   = getAdminUsername();
-                if ($adminRole != "admin" && $adminUname != $userInfo->admin_uname) {
+                if (!\App\Agency\Agency::canAccessOwner($userInfo->admin_uname)) {
                     $result["status"] = "error";
                     $result["messages"][] = "شما مجوز ویرایش این کاربر را ندارید";
                     return $result;
@@ -65,6 +63,15 @@ class Users
                 'required',
                 function ($attribute, $value,  $fail) use ($uModel, $editId) {
                     if ($value) {
+                        if (!preg_match('/^[A-Za-z0-9][A-Za-z0-9_.-]{1,31}$/', $value) || preg_match('/^[0-9]+$/', $value)) {
+                            $fail("نام کاربری فقط می‌تواند حروف انگلیسی، عدد و _ . - باشد (۲ تا ۳۲ حرف، نه فقط عدد)");
+                            return;
+                        }
+                        // a name that already belongs to the server itself must never become an account
+                        if (function_exists('posix_getpwnam') && posix_getpwnam($value) && !$uModel->isExistUsername($value)) {
+                            $fail("این نام کاربری قابل استفاده نیست");
+                            return;
+                        }
                         if ($uModel->isExistUsername($value, $editId)) {
                             $fail("لطفا از نام کاربری دیگری استفاده کنید");
                         }
@@ -147,9 +154,7 @@ class Users
             $result["messages"][] = "اطلاعات کاربر یافت نشد";
             return $result;
         } else {
-            $adminRole    = getAdminRole();
-            $adminUname   = getAdminUsername();
-            if ($adminRole != "admin" && $adminUname != $userInfo->admin_uname) {
+            if (!\App\Agency\Agency::canAccessOwner($userInfo->admin_uname)) {
                 $result["status"] = "error";
                 $result["messages"][] = "شما مجوز ویرایش این کاربر را ندارید";
                 return $result;

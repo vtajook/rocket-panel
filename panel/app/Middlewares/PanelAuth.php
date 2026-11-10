@@ -51,7 +51,17 @@ class PanelAuth
       if ($userId) {
         $aModal = new \App\Models\Admins();
         $userInfo = $aModal->getInfo($userId);
-        if ($userInfo->is_active) {
+        $blocked = true;
+        if ($userInfo) {
+          $agent   = \App\Agency\Agency::find($userInfo->id);
+          $blocked = !$agent || \App\Agency\Agency::blockReason($agent) !== '';
+          // a password change / ban bumps token_ver and ends older sessions
+          $sessVer = session()->get("token_ver");
+          if (!$blocked && $sessVer !== null && $agent && (int) $sessVer !== (int) $agent['token_ver']) {
+            $blocked = true;
+          }
+        }
+        if ($userInfo && !$blocked) {
           $request = $request->withAttribute('uid', $userId);
           $request = $request->withAttribute('userInfo', $userInfo);
           $this->cont["userInfo"] = $userInfo;
@@ -59,6 +69,8 @@ class PanelAuth
           $pass = true;
         } else {
           session()->delete('admin_login');
+          session()->delete('imp_admin');
+          session()->delete('token_ver');
         }
       }
     }

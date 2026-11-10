@@ -194,7 +194,7 @@ function trimArrayValues($array)
 {
     foreach ($array as $key => $value) {
         if (!is_array($value) && !is_object($value)) {
-            $$value = trim($value);
+            $value = trim((string) $value);
         }
         $array[$key] = $value;
     }

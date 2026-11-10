@@ -6,7 +6,10 @@
             </button>
         </div>
         <div class="d-flex align-items-center">
-           <div class="ps-2"> مدیر: <?= $userInfo["fullname"] ?></div>
+           <div class="ps-2"> <?= $userRole == "admin" ? "مدیر" : "نماینده" ?>: <?= htmlspecialchars($userInfo["fullname"]) ?></div>
+           <?php if (session()->get("imp_admin")) { ?>
+               <a class="btn btn-sm btn-warning ms-2" href="<?= baseUrl("agency/back") ?>">بازگشت به پنل مدیر</a>
+           <?php } ?>
         </div>
         <div class="m-auto"></div>
         <div class="d-flex align-items-center">

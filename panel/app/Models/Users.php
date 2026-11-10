@@ -273,11 +273,17 @@ class Users extends \App\Models\BaseModel
         // $onlineUsers   = UserShell::onlineUsers();
 
         $query = db($this->table)->select($select)
-            ->join('admins', 'admins.username', '=', 'users.admin_uname')
+            ->leftJoin('admins', 'admins.username', '=', 'users.admin_uname')
             ->join('traffics', 'traffics.username', '=', 'users.username');
 
-        if ($adminRole !== "admin") {
-            $query->where("users.admin_uname", $adminUname);
+        $scope = \App\Agency\Agency::scopeUsernames();
+        if ($scope !== null) {
+            $query->whereIn("users.admin_uname", $scope);
+        } else {
+            $ownerFilter = session()->get("users_owner");
+            if (!empty($ownerFilter)) {
+                $query->where("users.admin_uname", $ownerFilter);
+            }
         }
 
         if (!empty($pdata["main_search"])) {
@@ -287,8 +293,8 @@ class Users extends \App\Models\BaseModel
                 $query->where(function ($q) use ($search) {
                     $q->where("users.username", "LIKE", "%$search%")
                         ->orWhere("users.mobile",   $search)
-                        ->orWhere("users.email",    "%$search%")
-                        ->orWhere("users.desc",     "%$search%")
+                        ->orWhere("users.email",    "LIKE", "%$search%")
+                        ->orWhere("users.desc",     "LIKE", "%$search%")
                         ->orWhere("admins.fullname",  "LIKE", "%$search%");
                 });
             }
@@ -408,7 +414,7 @@ class Users extends \App\Models\BaseModel
 
         $query = db($this->table)->select($select)
             ->join('traffics', 'traffics.username', '=', 'users.username')
-            ->join('admins', 'admins.username', '=', 'users.admin_uname')
+            ->leftJoin('admins', 'admins.username', '=', 'users.admin_uname')
             ->where("users.id", $userId)
             ->get();
         if ($query->count()) {
@@ -558,7 +564,8 @@ class Users extends \App\Models\BaseModel
         }
 
         if ($userRole != "admin") {
-            $query->where("admin_uname", $userName);
+            $agent = \App\Agency\Agency::findByUsername($userName);
+            $query->whereIn("admin_uname", $agent ? \App\Agency\Agency::subtreeUsernames($agent["id"]) : [$userName]);
         }
         return  $query->count();
     }
@@ -598,9 +605,12 @@ class Users extends \App\Models\BaseModel
     public function adminAccessUsers()
     {
         $users = [];
-        $adminUname = getAdminUsername();
-
-        $query =  db("users")->select("username")->where("admin_uname", $adminUname)->get();
+        $scope = \App\Agency\Agency::scopeUsernames();
+        $query = db("users")->select("username");
+        if ($scope !== null) {
+            $query->whereIn("admin_uname", $scope);
+        }
+        $query = $query->get();
         if ($query->count()) {
             $rows = $query->toArray();
             foreach ($rows as $row) {
@@ -615,7 +625,12 @@ class Users extends \App\Models\BaseModel
     {
         $prefix     = getConfig("db")["prefix"];
         $table      = $prefix . "users";
-        $nextId = db()::selectOne("SHOW TABLE STATUS LIKE '$table'")->Auto_increment;
+        try {
+            $nextId = db()::selectOne("SHOW TABLE STATUS LIKE '$table'")->Auto_increment;
+        } catch (\Exception $err) {
+            // only used to salt the public token, so a close guess is fine
+            $nextId = intval(db("users")->max("id")) + 1;
+        }
         return $nextId;
     }
 }

@@ -272,7 +272,29 @@ class UserShell
 
     public static function killUser($pid)
     {
-        self::shellExec("sudo kill -9 {$pid}");
+        $pid = (int) $pid;
+        if ($pid > 1) {
+            self::shellExec("sudo kill -9 {$pid}");
+        }
+    }
+
+    /** account names and passwords reach the shell: refuse anything unusual */
+    private static function safeName($username)
+    {
+        if (!preg_match('/^[A-Za-z0-9][A-Za-z0-9_.-]{0,31}$/', (string) $username)) {
+            throw new \InvalidArgumentException("invalid username");
+        }
+        return $username;
+    }
+
+    private static function passwordCommand($username, $password)
+    {
+        $password = (string) $password;
+        if ($password === '' || preg_match('/[\r\n\0]/', $password)) {
+            throw new \InvalidArgumentException("invalid password");
+        }
+        // quoted here-doc: nothing inside is expanded by the shell
+        return "sudo passwd $username <<'ROCKET_PW_END'\n$password\n$password\nROCKET_PW_END";
     }
 
     public static function createMysqlBackup($filePath = "")
@@ -320,8 +342,9 @@ class UserShell
 
     public static function createUser($username, $password)
     {
+        self::safeName($username);
         $addUserCommand = "sudo adduser $username --force-badname --shell /usr/sbin/nologin &";
-        $setPasswordCommand = "sudo passwd $username <<!\n$password\n$password\n!";
+        $setPasswordCommand = self::passwordCommand($username, $password);
         $fullCommand = "$addUserCommand\nwait\n$setPasswordCommand";
 
         self::shellExec($fullCommand);
@@ -329,13 +352,15 @@ class UserShell
 
     public static function updateUserPassword($username, $password)
     {
-        $setPasswordCommand = "sudo passwd $username <<!\n$password\n$password\n!";
+        self::safeName($username);
+        $setPasswordCommand = self::passwordCommand($username, $password);
         self::shellExec($setPasswordCommand);
         self::userKill($username);
     }
 
     public static function deleteUser($username, $permanentDel = true)
     {
+        self::safeName($username);
         self::userKill($username);
         self::shellExec("sudo userdel -r {$username}");
     }
@@ -358,9 +383,30 @@ class UserShell
         self::deleteUser($username);
     }
 
-    public static function disableMultiUser($username)
+    public static function disableMultiUser($username, $users = [], $limitUsers = 1)
     {
-        self::userKill($username);
+        // Keep the oldest connections (up to the limit) and kill only the extra ones
+        $pids = [];
+        foreach ((array) $users as $u) {
+            $pid = intval($u["pid"] ?? 0);
+            if ($pid > 1) {
+                $pids[$pid] = $pid;
+            }
+        }
+
+        $limitUsers = max(1, intval($limitUsers));
+        if (count($pids) <= $limitUsers) {
+            if (empty($pids)) {
+                self::userKill($username);
+            }
+            return;
+        }
+
+        sort($pids, SORT_NUMERIC);
+        $extra = array_slice($pids, $limitUsers);
+        foreach ($extra as $pid) {
+            self::shellExec("sudo kill -9 {$pid}");
+        }
     }
 
     public static function updateSshPort($newPort)

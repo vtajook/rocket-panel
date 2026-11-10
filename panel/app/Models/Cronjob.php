@@ -107,7 +107,8 @@ class Cronjob extends \App\Models\BaseModel
 
         // one query for every online account instead of one per account
         $rows = db('users')->whereIn('username', array_keys($onlineUsers))
-            ->select('username', 'start_date', 'expiry_days', 'limit_users')->get();
+            ->select('username', 'admin_uname', 'start_date', 'expiry_days', 'limit_users')->get();
+        $frozen = array_flip(\App\Agency\Agency::frozenOwnerUsernames());
 
         foreach ($rows as $userInfo) {
             $username = $userInfo->username;
@@ -117,6 +118,14 @@ class Cronjob extends \App\Models\BaseModel
                 $startDate = date("Y/m/d");
                 $endDate   = date('Y/m/d', strtotime($startDate . " + {$userInfo->expiry_days} days"));
                 $uModel->updateExpirydates($username, $startDate, $endDate);
+            }
+
+            // a frozen reseller's accounts may not stay connected (accounts themselves are untouched)
+            if (isset($frozen[$userInfo->admin_uname])) {
+                foreach ($users as $u) {
+                    UserShell::killUser(isset($u["pid"]) ? $u["pid"] : 0);
+                }
+                continue;
             }
 
             // keep the oldest connections, drop the extra ones; the account itself is never disabled

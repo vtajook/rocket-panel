@@ -17,7 +17,7 @@ class UserShell
         $sshPort = getenv("PORT_SSH");
         $online = 0;
 
-        $output = self::shellExec("sudo lsof -i :$sshPort -n | grep -v root | grep ESTABLISHED |awk '{print $3}' |sort -u");
+        $output = self::shellExec("sudo lsof -i :$sshPort -nP | grep -v root | grep ESTABLISHED |awk '{print $3}' |sort -u");
 
         if (!empty($output)) {
             $list = preg_split("/\r\n|\n|\r/", $output);
@@ -39,7 +39,7 @@ class UserShell
         $onlineUsers = [];
         $sshPort = getenv("PORT_SSH");
 
-        $output  = self::shellExec("sudo lsof -i :$sshPort  -n | grep -v root | grep ESTABLISHED");
+        $output  = self::shellExec("sudo lsof -i :$sshPort -nP | grep -v root | grep ESTABLISHED");
 
         if (!empty($output)) {
             $usersList      = preg_split("/\r\n|\n|\r/", $output);

@@ -6,7 +6,7 @@ SSH panel (Rocket SSH based) with an agency/reseller system, wallet ledger, plan
 
 Run as root (on the server):
 
-    bash <(curl -Ls https://raw.githubusercontent.com/vtajook/rocket-panel/main/install.sh)
+    curl -Ls https://raw.githubusercontent.com/vtajook/rocket-panel/main/install.sh -o /root/rocket-install.sh && bash /root/rocket-install.sh
 
 Menu: update panel · install · change panel login · uninstall · exit.
 

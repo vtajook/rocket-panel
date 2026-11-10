@@ -54,11 +54,13 @@ class Agency extends BaseController
 
         $total  = [];
         $active = [];
-        $rows = db('users')->selectRaw("admin_uname, COUNT(*) as total, SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) as active")
+        $months = [];
+        $rows = db('users')->selectRaw("admin_uname, COUNT(*) as total, SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) as active, SUM(CASE WHEN status = 'active' THEN expiry_days ELSE 0 END) as days_sum")
             ->groupBy('admin_uname')->get();
         foreach ($rows as $row) {
             $total[$row->admin_uname]  = (int) $row->total;
             $active[$row->admin_uname] = (int) $row->active;
+            $months[$row->admin_uname] = round(((float) $row->days_sum) / 30, 1);
         }
 
         $sales = [];
@@ -95,6 +97,7 @@ class Agency extends BaseController
                 'balance' => isset($balances[$agent['id']]) ? $balances[$agent['id']] : 0,
                 'total'   => isset($total[$uname]) ? $total[$uname] : 0,
                 'active'  => isset($active[$uname]) ? $active[$uname] : 0,
+                'months'  => isset($months[$uname]) ? $months[$uname] : 0,
                 'online'  => isset($online[$uname]) ? $online[$uname] : 0,
                 'sales'   => isset($sales[$agent['id']]) ? $sales[$agent['id']] : ['cnt' => 0, 'paid' => 0, 'last' => 0],
                 'badges'  => Core::statusBadges($agent),

@@ -314,6 +314,51 @@ EOF
     (crontab -l 2>/dev/null | grep -v "cronjob.sh"; echo "* * * * * $f") | crontab -
 }
 
+# ---------------------------------------------------------------- stability defaults
+configure_tuning() {
+    # MariaDB: many short panel/cron requests must never hit "Too many connections"
+    mkdir -p /etc/mysql/mariadb.conf.d
+    cat > /etc/mysql/mariadb.conf.d/99-rocket.cnf <<'EOF'
+[mysqld]
+max_connections = 500
+wait_timeout = 120
+interactive_timeout = 120
+EOF
+    mysql -e "SET GLOBAL max_connections=500; SET GLOBAL wait_timeout=120; SET GLOBAL interactive_timeout=120;" 2>/dev/null
+
+    # BBR
+    if ! grep -q "rocket-bbr" /etc/sysctl.conf 2>/dev/null; then
+        printf "\n# rocket-bbr\nnet.core.default_qdisc=fq\nnet.ipv4.tcp_congestion_control=bbr\n" >> /etc/sysctl.conf
+        sysctl -p >/dev/null 2>&1
+    fi
+
+    # sshd: survive reconnect storms and free dead sessions quickly (reload keeps current connections)
+    if ! grep -q "^# rocket-ssh-tuning" /etc/ssh/sshd_config; then
+        cp -a /etc/ssh/sshd_config /etc/ssh/sshd_config.rocket-tuning.bak
+        sed -i -E '/^[[:space:]]*(MaxStartups|LoginGraceTime|ClientAliveInterval|ClientAliveCountMax)[[:space:]]/d' /etc/ssh/sshd_config
+        { printf "# rocket-ssh-tuning\nMaxStartups 2000:30:4000\nLoginGraceTime 20\nClientAliveInterval 15\nClientAliveCountMax 3\n\n"; cat /etc/ssh/sshd_config; } > /tmp/sshd_new
+        cat /tmp/sshd_new > /etc/ssh/sshd_config
+        rm -f /tmp/sshd_new
+        if sshd -t; then
+            systemctl reload ssh 2>/dev/null || systemctl reload sshd 2>/dev/null
+        else
+            red "sshd test failed, restoring"
+            cp -f /etc/ssh/sshd_config.rocket-tuning.bak /etc/ssh/sshd_config
+        fi
+    fi
+
+    # watchdog: restart MariaDB / Apache only when they really stopped answering
+    local pp; pp=$(env_get PORT_PANEL)
+    cat > /usr/local/sbin/rocket-watchdog <<EOF
+#!/bin/bash
+mysqladmin ping >/dev/null 2>&1 || systemctl restart mariadb
+code=\$(curl -s -m 15 -o /dev/null -w "%{http_code}" http://127.0.0.1:${pp:-8081}/login)
+case "\$code" in 2*|3*) ;; *) systemctl restart apache2 ;; esac
+EOF
+    chmod +x /usr/local/sbin/rocket-watchdog
+    (crontab -l 2>/dev/null | grep -v rocket-watchdog; echo "*/2 * * * * /usr/local/sbin/rocket-watchdog") | crontab -
+}
+
 # ---------------------------------------------------------------- actions
 do_install() {
     need_root
@@ -354,6 +399,7 @@ do_install() {
     install_udpgw "$up"
     install_nethogs
     configure_cron "$pp"
+    configure_tuning
     timedatectl set-timezone Asia/Tehran >/dev/null 2>&1
     rm -rf "$TMP"
     curl -s -m 20 -o /dev/null "http://127.0.0.1:$pp/login"   # lets the panel run its migrations

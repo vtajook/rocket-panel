@@ -24,8 +24,8 @@ class Cronjob extends \App\Models\BaseModel
             'multiUser'         => 1,
             'expiredUsers'      => 120,
             'syncTraffic'       => 1,
-            'onlineUsers'       => 15,
             'syncSysUsers'      => 60,
+            'limitedTraffic'    => 5,
             'appLastVersion'    => 86400
         ];
 
@@ -53,7 +53,12 @@ class Cronjob extends \App\Models\BaseModel
             // Check if it's time to execute based on the interval
             if ($currentTime - $lastExecutionTime >= $interval) {
                 $data[$key] = $currentTime;
-                $this->$key();
+                try {
+                    $this->$key();
+                } catch (\Throwable $e) {
+                    // one failing task must not stop the others
+                    @error_log("cron {$key}: " . $e->getMessage());
+                }
 
                 //save
                 @file_put_contents($lastExecutionFile, json_encode($data));
@@ -89,43 +94,34 @@ class Cronjob extends \App\Models\BaseModel
 
     private function multiUser()
     {
+        $multiuser   = Settings::getSetting("multiuser");
+        $onlineUsers = UserShell::onlineUsers();
+        $uModel      = new Users();
 
-        $multiuser      = Settings::getSetting("multiuser");
-        $onlineUsers    = UserShell::onlineUsers();
-        $uModel         = new Users();
+        // the same snapshot feeds the "online users" pages (no second lsof run)
+        setLocalOnlienUsers($onlineUsers);
 
-        if (!empty($onlineUsers)) {
-            $onUsers     = [];
+        if (empty($onlineUsers)) {
+            return;
+        }
 
-            foreach ($onlineUsers as $username => $users) {
-                $userInfo =  $uModel->getByUsername($username);
-                if ($userInfo) {
-                    $expiryDays   = $userInfo->expiry_days;
+        // one query for every online account instead of one per account
+        $rows = db('users')->whereIn('username', array_keys($onlineUsers))
+            ->select('username', 'start_date', 'expiry_days', 'limit_users')->get();
 
-                    if (!$userInfo->start_date) {
-                        $startDate  = date("Y/m/d");
-                        $endDate    = date('Y/m/d', strtotime($startDate . " + $expiryDays days"));
-                        $uModel->updateExpirydates($username, $startDate, $endDate);
-                    }
+        foreach ($rows as $userInfo) {
+            $username = $userInfo->username;
+            $users    = $onlineUsers[$username];
 
-                    $onUsers[$username] = ["users" => $users, "userInfo" => $userInfo];
-                }
+            if (!$userInfo->start_date) {
+                $startDate = date("Y/m/d");
+                $endDate   = date('Y/m/d', strtotime($startDate . " + {$userInfo->expiry_days} days"));
+                $uModel->updateExpirydates($username, $startDate, $endDate);
             }
 
-           
-            if ($multiuser) {
-
-                foreach ($onUsers as $username => $value) {
-                    $userInfo       = $value["userInfo"];
-                    $limitUsers     = $userInfo->limit_users;
-                    $users          = $value["users"];
-
-                    if ($userInfo) {
-                        if ($multiuser && count($users) > $limitUsers) {
-                            UserShell::disableMultiUser($username, $users, $limitUsers);
-                        }
-                    }
-                }
+            // keep the oldest connections, drop the extra ones; the account itself is never disabled
+            if ($multiuser && count($users) > $userInfo->limit_users) {
+                UserShell::disableMultiUser($username, $users, $userInfo->limit_users);
             }
         }
     }
@@ -200,6 +196,27 @@ class Cronjob extends \App\Models\BaseModel
 
 
         UserShell::createTrfficsLogFile($trafficFilePath);
+    }
+
+    /** accounts with a traffic cap (e.g. 50 MB tests): check often so they cannot overshoot */
+    public function limitedTraffic()
+    {
+        $rows = db('users')
+            ->join('traffics', 'traffics.username', '=', 'users.username')
+            ->where('users.status', 'active')
+            ->where('users.traffic', '>', 0)
+            ->where('users.start_date', '>', 0)
+            ->whereRaw('cp_traffics.total > cp_users.traffic')
+            ->select('users.id', 'users.username')
+            ->limit(200)->get();
+        if (!$rows || !count($rows)) {
+            return;
+        }
+        $uModel = new Users();
+        foreach ($rows as $row) {
+            UserShell::deactivateUser($row->username);
+            $uModel->updateStatus($row->id, "expiry_traffic");
+        }
     }
 
     public function expiredUsers()

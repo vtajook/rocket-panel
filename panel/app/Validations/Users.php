@@ -63,8 +63,8 @@ class Users
                 'required',
                 function ($attribute, $value,  $fail) use ($uModel, $editId) {
                     if ($value) {
-                        if (!preg_match('/^[A-Za-z0-9][A-Za-z0-9_.-]{1,31}$/', $value) || preg_match('/^[0-9]+$/', $value)) {
-                            $fail("نام کاربری فقط می‌تواند حروف انگلیسی، عدد و _ . - باشد (۲ تا ۳۲ حرف، نه فقط عدد)");
+                        if (!preg_match('/^[A-Za-z0-9][A-Za-z0-9_.-]{1,31}$/', $value)) {
+                            $fail("نام کاربری فقط می‌تواند حروف انگلیسی، عدد و _ . - باشد (۲ تا ۳۲ حرف)");
                             return;
                         }
                         // a name that already belongs to the server itself must never become an account

@@ -15,6 +15,7 @@ $endDateJD          = getArrayValue($userInfo, "end_date_jd"); //jalali date
 $startJD            = getArrayValue($userInfo, "start_date_jd"); //jalali date
 $remainingDays      = getArrayValue($userInfo, "remaining_days", 0);
 $netmodQrUrl        = getArrayValue($userInfo, "netmod_qr_url", "");
+$npvQrUrl           = getArrayValue($userInfo, "npv_qr_url", "");
 $status             = getArrayValue($userInfo, "status", "");
 $arrayConfig        = getArrayValue($userInfo, "array_config", []);
 $diffrenceDate      = getArrayValue($userInfo, "diffrence_date", "");
@@ -121,8 +122,44 @@ $values = [
                     <div class="col-lg-4 text-center">
                         <div class="d-flex h-100 justify-content-around flex-column">
                             <div class="mb-3">
-                                <p class="small">جهت استفاده در برنامه Netmod اندروید تصویر زیر را اسکن کنید</p>
-                                <img class="m-auto" src="<?= $netmodQrUrl ?>" />
+                                <p class="small mb-2">برنامه‌ی خود را انتخاب کنید و کد را اسکن یا لینک را کپی کنید</p>
+                                <div class="btn-group btn-group-sm mb-2" role="group">
+                                    <button type="button" class="btn btn-primary cfg-tab" data-t="nm">NetMod</button>
+                                    <button type="button" class="btn btn-outline-primary cfg-tab" data-t="npv">NPV</button>
+                                    <button type="button" class="btn btn-outline-primary cfg-tab" data-t="sub">ساب</button>
+                                </div>
+                                <div class="cfg-pane" data-t="nm">
+                                    <img class="m-auto" src="<?= $netmodQrUrl ?>" style="max-width:100%" />
+                                    <button type="button" class="btn btn-secondary btn-sm d-block m-auto mt-2 cfg-copy" data-text="<?= htmlspecialchars(getArrayValue($arrayConfig, "netmod_link", ""), ENT_QUOTES) ?>">کپی لینک NetMod</button>
+                                </div>
+                                <div class="cfg-pane" data-t="npv" style="display:none">
+                                    <img class="m-auto" src="<?= $npvQrUrl ?>" style="max-width:100%" />
+                                    <button type="button" class="btn btn-secondary btn-sm d-block m-auto mt-2 cfg-copy" data-text="<?= htmlspecialchars(getArrayValue($arrayConfig, "npv_link", ""), ENT_QUOTES) ?>">کپی لینک NPV</button>
+                                </div>
+                                <div class="cfg-pane" data-t="sub" style="display:none">
+                                    <p class="small text-muted">لینک ساب را در برنامه اضافه کنید تا روز و حجم باقی‌مانده را همان‌جا ببینید</p>
+                                    <input class="form-control form-control-sm" dir="ltr" readonly value="<?= htmlspecialchars(getArrayValue($arrayConfig, "sub_link", ""), ENT_QUOTES) ?>" onclick="this.select()">
+                                    <button type="button" class="btn btn-secondary btn-sm d-block m-auto mt-2 cfg-copy" data-text="<?= htmlspecialchars(getArrayValue($arrayConfig, "sub_link", ""), ENT_QUOTES) ?>">کپی لینک ساب</button>
+                                </div>
+                                <script>
+                                (function () {
+                                    var tabs = document.querySelectorAll('.cfg-tab'), panes = document.querySelectorAll('.cfg-pane');
+                                    tabs.forEach(function (b) {
+                                        b.addEventListener('click', function () {
+                                            tabs.forEach(function (x) { x.className = 'btn cfg-tab ' + (x === b ? 'btn-primary' : 'btn-outline-primary'); });
+                                            panes.forEach(function (p) { p.style.display = p.getAttribute('data-t') === b.getAttribute('data-t') ? '' : 'none'; });
+                                        });
+                                    });
+                                    document.querySelectorAll('.cfg-copy').forEach(function (b) {
+                                        b.addEventListener('click', function () {
+                                            var t = b.getAttribute('data-text'), ok = function () { var o = b.textContent; b.textContent = 'کپی شد'; setTimeout(function () { b.textContent = o; }, 1500); };
+                                            if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(t).then(ok); return; }
+                                            var a = document.createElement('textarea'); a.value = t; document.body.appendChild(a); a.select();
+                                            try { document.execCommand('copy'); ok(); } catch (e) {} document.body.removeChild(a);
+                                        });
+                                    });
+                                })();
+                                </script>
                             </div>
                             <div>
                                 <?php if (!empty($settings["support_url"])) { ?>

@@ -5,3 +5,5 @@ $accountRoutes =  $app->group('/account', function () use ($app) {
     $app->post('/login',        'App\Controllers\UserAccount\Users:login');
     $app->get('/{token}',       'App\Controllers\UserAccount\Users:userInfoByToken');
 });
+
+$subRoutes = $app->get('/sub/{token}', 'App\Controllers\UserAccount\Users:subscription');

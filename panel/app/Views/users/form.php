@@ -66,7 +66,7 @@ $agPlans = ($agMe && !$userId) ? \App\Agency\Agency::plansFor($agMe) : [];
                     <div class="col-lg-6">
                         <div class="form-group mb-2">
                             <label for="username" class="form-label">نام کاربری (فقط حروف انگلیسی و اعداد)</label>
-                            <input type="text" <?= $userId ? "disabled" : "" ?> value="<?= $username ?>" name="username" class="form-control" placeholder="نام کاربری را وارد کنید" required>
+                            <input type="text" value="<?= $username ?>" name="username" autocomplete="off" class="form-control" placeholder="نام کاربری را وارد کنید" required>
                         </div>
                     </div>
                     <div class="col-lg-6">

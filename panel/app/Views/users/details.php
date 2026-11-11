@@ -16,6 +16,7 @@ $endDateJD          = getArrayValue($userValues, "end_date_jd"); //jalali date
 $startJD            = getArrayValue($userValues, "start_date_jd"); //jalali date
 $remainingDays      = getArrayValue($userValues, "remaining_days", 0);
 $netmodQrUrl        = getArrayValue($userValues, "netmod_qr_url", "");
+$npvQrUrl           = getArrayValue($userValues, "npv_qr_url", "");
 $status             = getArrayValue($userValues, "status", "");
 $adminName          = getArrayValue($userValues, "admin_name", "");
 $desc               = getArrayValue($userValues, "desc", "");
@@ -140,7 +141,7 @@ $values = [
                                         </button>
                                     <?php } ?>
 
-                                    <button class="btn-copy-config btn btn-secondary w-100 mb-2 btn-float-icon btn-copy-config" data-config='<?= json_encode($arrayConfig) ?>'>
+                                    <button class="btn-copy-config btn btn-secondary w-100 mb-2 btn-float-icon btn-copy-config" data-config="<?= htmlspecialchars(json_encode($arrayConfig, JSON_UNESCAPED_UNICODE), ENT_QUOTES) ?>">
                                         <?= inlineIcon("copy") ?>
                                         کپی کانفیگ
                                     </button>
@@ -149,10 +150,27 @@ $values = [
                             </div>
                             <div class="col-6 col-sm-6 px-1 col-md-12">
                                 <div class="border-md-top mt-2">
-                                    <div class="my-2">
-                                        <small>قابل استفاده در برنامه Netmod اندروید</small>
+                                    <div class="my-2"><small>دریافت کانفیگ (برنامه‌ی مورد نظر را انتخاب کنید)</small></div>
+                                    <ul class="nav nav-pills nav-fill mb-2 small" role="tablist">
+                                        <li class="nav-item"><button class="nav-link active py-1" data-bs-toggle="pill" data-bs-target="#cfg-nm-<?= $userId ?>" type="button">NetMod</button></li>
+                                        <li class="nav-item"><button class="nav-link py-1" data-bs-toggle="pill" data-bs-target="#cfg-npv-<?= $userId ?>" type="button">NPV</button></li>
+                                        <li class="nav-item"><button class="nav-link py-1" data-bs-toggle="pill" data-bs-target="#cfg-sub-<?= $userId ?>" type="button">ساب</button></li>
+                                    </ul>
+                                    <div class="tab-content">
+                                        <div class="tab-pane fade show active" id="cfg-nm-<?= $userId ?>">
+                                            <img src="<?= $netmodQrUrl ?>" width="100%" />
+                                            <button class="btn btn-secondary btn-sm w-100 mt-1" data-copy="true" data-text="<?= htmlspecialchars($arrayConfig["netmod_link"] ?? "", ENT_QUOTES) ?>">کپی لینک NetMod</button>
+                                        </div>
+                                        <div class="tab-pane fade" id="cfg-npv-<?= $userId ?>">
+                                            <img src="<?= $npvQrUrl ?>" width="100%" />
+                                            <button class="btn btn-secondary btn-sm w-100 mt-1" data-copy="true" data-text="<?= htmlspecialchars($arrayConfig["npv_link"] ?? "", ENT_QUOTES) ?>">کپی لینک NPV</button>
+                                        </div>
+                                        <div class="tab-pane fade" id="cfg-sub-<?= $userId ?>">
+                                            <div class="small text-muted mb-1">لینک ساب: در برنامه افزوده شود، روز و حجم باقی‌مانده نشان داده می‌شود</div>
+                                            <input class="form-control form-control-sm text-start" dir="ltr" readonly value="<?= htmlspecialchars($arrayConfig["sub_link"] ?? "", ENT_QUOTES) ?>" onclick="this.select()">
+                                            <button class="btn btn-secondary btn-sm w-100 mt-1" data-copy="true" data-text="<?= htmlspecialchars($arrayConfig["sub_link"] ?? "", ENT_QUOTES) ?>">کپی لینک ساب</button>
+                                        </div>
                                     </div>
-                                    <img src="<?= $netmodQrUrl ?>" width="100%" />
                                 </div>
                             </div>
                         </div>

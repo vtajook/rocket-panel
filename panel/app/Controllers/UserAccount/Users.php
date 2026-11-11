@@ -16,7 +16,7 @@ class Users
     private const PUBLIC_FIELDS = [
         "id", "username", "password", "email", "mobile", "format_traffic", "start_date", "end_date",
         "expiry_days", "expiry_type", "limit_users", "format_consumer_traffic", "end_date_jd",
-        "start_date_jd", "remaining_days", "netmod_qr_url", "status", "array_config", "diffrence_date",
+        "start_date_jd", "remaining_days", "netmod_qr_url", "npv_qr_url", "status", "array_config", "diffrence_date",
     ];
 
     public function userInfoByToken($request, $response, $args)
@@ -36,6 +36,41 @@ class Users
 
         noteFail("acct");
         return $response->withStatus(404);
+    }
+
+    /** subscription for apps: configs + (in the header) usage, total and expiry, so the app can show them */
+    public function subscription($request, $response, $args)
+    {
+        if (tooManyFails("acct", 30)) {
+            return $response->withStatus(429);
+        }
+        $uModel = new \App\Models\Users();
+        $info   = $uModel->getInfoByToken($args["token"]);
+        if (empty($info)) {
+            noteFail("acct");
+            return $response->withStatus(404);
+        }
+
+        $remark = subRemark($info);
+        $body   = base64_encode(netmodLink($info, $remark) . "\n" . npvLink($info, $remark) . "\n");
+
+        $t = db("traffics")->where("username", $info->username)->first();
+        $mb = 1048576;
+        $userinfo = sprintf(
+            "upload=%d; download=%d; total=%d; expire=%d",
+            $t ? (float) $t->upload * $mb : 0,
+            $t ? (float) $t->download * $mb : 0,
+            (float) $info->traffic * $mb,
+            (int) $info->end_date
+        );
+
+        $response->getBody()->write($body);
+        return $response->withStatus(200)
+            ->withHeader("Content-Type", "text/plain; charset=utf-8")
+            ->withHeader("Subscription-Userinfo", $userinfo)
+            ->withHeader("Profile-Title", "base64:" . base64_encode($info->username))
+            ->withHeader("Profile-Update-Interval", "1")
+            ->withHeader("Cache-Control", "no-store");
     }
 
     public function settings($request, $response, $args)

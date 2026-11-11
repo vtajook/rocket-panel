@@ -353,17 +353,78 @@ function getCurrentDate()
     return  jdate()->format("d F Y");
 }
 
+/** link for NetMod (and most SSH apps): ssh://user:pass@host:port#name */
+function netmodLink($userInfo, $remark = null)
+{
+    $remark = $remark === null ? $userInfo->username : $remark;
+    return "ssh://" . rawurlencode($userInfo->username) . ":" . rawurlencode($userInfo->password)
+        . "@" . getServerName() . ":" . getenv("PORT_SSH") . "#" . rawurlencode($remark);
+}
+
+/** link for NPV Tunnel: npvt-ssh:// + base64 of the profile (text fields are wrapped as "npvs1:" + base64) */
+function npvLink($userInfo, $remark = null)
+{
+    $remark = $remark === null ? $userInfo->username : $remark;
+    $enc = function ($v) {
+        return "npvs1:" . base64_encode((string) $v);
+    };
+    $profile = [
+        "sshConfigType"           => $enc("SSH-Direct"),
+        "remarks"                 => $enc($remark),
+        "sshHost"                 => $enc(getServerName()),
+        "sshPort"                 => (int) getenv("PORT_SSH"),
+        "sshUsername"             => $enc($userInfo->username),
+        "sshPassword"             => $enc($userInfo->password),
+        "sshAuthMethod"           => $enc("PASSWORD"),
+        "sshPrivateKey"           => "",
+        "sshPrivateKeyPassphrase" => "",
+        "sni"                     => "",
+        "tlsVersion"              => $enc("DEFAULT"),
+        "httpProxy"               => "",
+        "authenticateProxy"       => false,
+        "proxyUsername"           => "",
+        "proxyPassword"           => "",
+        "payload"                 => "",
+        "dnsTTMode"               => $enc("UDP"),
+        "dnsServer"               => "",
+        "nameserver"              => "",
+        "publicKey"               => "",
+        "udpgwPort"               => (int) getenv("PORT_UDP"),
+        "udpgwTransparentDNS"     => true,
+    ];
+    return "npvt-ssh://" . base64_encode(json_encode($profile, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+}
+
+/** address of the subscription page of one account (apps fetch it and show remaining days / traffic) */
+function subLink($userInfo)
+{
+    $scheme = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? "https" : "http";
+    return "$scheme://" . getServerName() . ":" . getenv("PORT_PANEL") . "/sub/" . $userInfo->token;
+}
+
+/** name shown for the account inside apps: who, days left, traffic left */
+function subRemark($info)
+{
+    $days = (int) $info->remaining_days;
+    $parts = [$info->username, $days >= 0 ? "$days روز" : "منقضی"];
+    if ((float) $info->traffic > 0) {
+        $left = max(0, (float) $info->traffic - (float) $info->consumer_traffic);
+        $parts[] = formatTraffice($left) . " مانده";
+    } else {
+        $parts[] = "حجم نامحدود";
+    }
+    return implode(" | ", $parts);
+}
+
+/** QR codes are drawn here on the server: the account details never go to an outside service */
 function generateNetmodQR($userInfo)
 {
+    return \App\Libraries\QrCode::dataUri(netmodLink($userInfo), 'M');
+}
 
-    $username   = $userInfo->username;
-    $password   = $userInfo->password;
-    $serverName = getServerName();
-    $port       = getenv("PORT_SSH");
-
-    $str = "chl=ssh://$username:$password@$serverName:$port";
-    $url = 'https://chart.googleapis.com/chart?cht=qr&chs=160x160&chld=L|0&' . $str;
-    return $url;
+function generateNpvQR($userInfo)
+{
+    return \App\Libraries\QrCode::dataUri(npvLink($userInfo), 'L');
 }
 
 function convertToEnNum($string)
@@ -516,6 +577,9 @@ function getUserConfig($user)
         "password"      => $user->password,
         "start_date"    => !empty($user->start_date_jd) ? $user->start_date_jd : "-",
         "end_date"      => !empty($user->end_date_jd) ? $user->end_date_jd : "-",
+        "netmod_link"   => netmodLink($user),
+        "npv_link"      => npvLink($user),
+        "sub_link"      => subLink($user),
     ];
 }
 

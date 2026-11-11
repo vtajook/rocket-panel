@@ -80,6 +80,26 @@ class Users
             ];
         } else {
 
+            // the account name may be changed: same rules as a new name, unless it stays the same
+            if (isset($pdata['username']) && $pdata['username'] !== '' && $pdata['username'] !== $userInfo->username) {
+                $validatorRules['username'] = [
+                    'required',
+                    function ($attribute, $value,  $fail) use ($uModel, $editId) {
+                        if (!preg_match('/^[A-Za-z0-9][A-Za-z0-9_.-]{1,31}$/', $value)) {
+                            $fail("نام کاربری فقط می‌تواند حروف انگلیسی، عدد و _ . - باشد (۲ تا ۳۲ حرف)");
+                            return;
+                        }
+                        if (function_exists('posix_getpwnam') && posix_getpwnam($value) && !$uModel->isExistUsername($value)) {
+                            $fail("این نام کاربری قابل استفاده نیست");
+                            return;
+                        }
+                        if ($uModel->isExistUsername($value, $editId)) {
+                            $fail("لطفا از نام کاربری دیگری استفاده کنید");
+                        }
+                    },
+                ];
+            }
+
             $startDate = $userInfo->start_date;
             if ($startDate) {
                 unset($validatorRules["expiry_type"]);

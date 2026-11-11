@@ -95,11 +95,24 @@ class Users extends \App\Models\BaseModel
         $columnsArr["traffic"]          = $pdata["traffic"] * 1024;
         $columnsArr["limit_users"]      = $pdata["limit_users"];
 
+        // a new account name on an existing account: the traffic record follows, and the server user is
+        // recreated under the new name (a server user cannot be renamed while it is connected)
+        $renameTo = null;
+        if ($editId && $userInfo && !empty($pdata["username"]) && $pdata["username"] !== $userInfo->username) {
+            $renameTo = $pdata["username"];
+            $columnsArr["username"] = $renameTo;
+        }
+
         try {
-            db()::transaction(function () use ($columnsArr, $editId, $userInfo) {
+            db()::transaction(function () use ($columnsArr, $editId, $userInfo, $renameTo) {
 
                 $this->updateOrCreate(['id' => $editId], $columnsArr);
-                if (!$editId) {
+                if ($renameTo) {
+                    db("traffics")->where("username", $userInfo->username)->update(["username" => $renameTo]);
+                    if ($userInfo->status === "active") {
+                        UserShell::createUser($renameTo, $columnsArr["password"]);
+                    }
+                } elseif (!$editId) {
                     $trafficCols["username"]    = $columnsArr["username"];
                     $trafficCols["download"]    = 0;
                     $trafficCols["upload"]      = 0;
@@ -111,7 +124,9 @@ class Users extends \App\Models\BaseModel
                 }
 
                 //server shells
-                if (!$userInfo) {
+                if ($renameTo) {
+                    // handled above
+                } elseif (!$userInfo) {
                     $username = $columnsArr["username"];
                     $password = $columnsArr["password"];
                     UserShell::createUser($username, $password);
@@ -128,6 +143,11 @@ class Users extends \App\Models\BaseModel
         } catch (\Exception $err) {
             db()::rollback();
             throw $err;
+        }
+
+        if ($renameTo && $userInfo->status === "active") {
+            // the old server user (and its connections) goes only after the new name is saved
+            UserShell::deleteUser($userInfo->username);
         }
     }
 
@@ -479,6 +499,7 @@ class Users extends \App\Models\BaseModel
             $row->diffrence_date    = $diffrenceDate;
             $row->remaining_days    = $remainingDays;
             $row->netmod_qr_url     = generateNetmodQR($row);
+            $row->npv_qr_url        = generateNpvQR($row);
 
             $userConfig             = getUserConfig($row);;
             $row->array_config      = $userConfig;

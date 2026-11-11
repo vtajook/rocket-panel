@@ -552,12 +552,10 @@ function generateRandomPassword($length, $type)
 
 function isDevMode()
 {
-    $serverName = $_SERVER['SERVER_NAME'];
-
-    if ($serverName === 'localhost' || $serverName === '127.0.0.1') {
-        return true;
-    }
-    return false;
+    // "dev mode" turns every server command into a no-op. It used to be decided from the requested host
+    // name, so the cron loop calling http://127.0.0.1:PORT silently did nothing (no online list, no
+    // extra-device kicks, no traffic). Only PHP's built-in development server counts as dev now.
+    return php_sapi_name() === 'cli-server';
 }
 
 function makeCurlRequest($url, $method = 'GET', $headers = [], $data = [], $sleeptime = 0)

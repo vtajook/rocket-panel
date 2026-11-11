@@ -272,7 +272,8 @@ class Users extends BaseController
             $message = "تعداد $added کاربر با موفقیت افزوده شد";
             return $response->withStatus(200)->withJson(["messages" => $message]);
         }
-        return $response->withStatus(400)->withJson(["messages" => "متاسفانه هیچ کاربری اضافه نشد"]);
+        $why = !empty($uModel->bulkErrors) ? " (" . implode(" | ", array_slice($uModel->bulkErrors, 0, 3)) . ")" : "";
+        return $response->withStatus(400)->withJson(["messages" => "متاسفانه هیچ کاربری اضافه نشد" . $why]);
     }
 
     public function ajaxEditUser($request, $response, $args)

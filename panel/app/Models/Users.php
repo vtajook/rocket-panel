@@ -209,6 +209,7 @@ class Users extends \App\Models\BaseModel
 
         $addedUsers     = 0;
         $usernameEndNum = $usernameStartNum + $usersCount;
+        $this->bulkErrors = [];
         for ($i = $usernameStartNum; $i < $usernameEndNum; $i++) {
             $password = generateRandomPassword($passwordLen, $passwordType);
             $username = "$prefixUsername" . $i;
@@ -216,41 +217,44 @@ class Users extends \App\Models\BaseModel
             $columnsArr["username"] = $username;
             $columnsArr["password"] = $password;
 
-            $checkUser = $this->where('username', $username)->count();
-            if (!$checkUser) {
-                try {
-                    db()::transaction(function () use ($columnsArr) {
+            if ($this->where('username', $username)->count()) {
+                $this->bulkErrors[] = "$username: نام کاربری تکراری است";
+                continue;
+            }
 
-                        $nextUid                = $this->getNextUserId();
-                        $columnsArr["token"]    = generateUserToken($nextUid);
+            try {
+                // the id is only used to salt the public token: read it before the transaction starts
+                $columnsArr["token"] = generateUserToken($this->getNextUserId());
 
-                        $this->insert($columnsArr);
+                // the model's own connection runs the whole transaction (a second connection used to
+                // block itself on SQLite and could leave a half-created account on any database)
+                $this->getConnection()->transaction(function () use ($columnsArr) {
+                    $this->insert($columnsArr);
 
-                        $trafficCols["username"]    = $columnsArr["username"];
-                        $trafficCols["download"]    = 0;
-                        $trafficCols["upload"]      = 0;
-                        $trafficCols["total"]       = 0;
-                        $trafficCols["ctime"]       = time();
-                        $trafficCols["utime"]       = 0;
-                        \App\Models\Traffics::insert($trafficCols);
+                    \App\Models\Traffics::insert([
+                        "username" => $columnsArr["username"],
+                        "download" => 0,
+                        "upload"   => 0,
+                        "total"    => 0,
+                        "ctime"    => time(),
+                        "utime"    => 0,
+                    ]);
 
-                        $username = $columnsArr["username"];
-                        $password = $columnsArr["password"];
-                        UserShell::createUser($username, $password);
-
-                        usleep(500);
-                        //create with shell
-                    });
-                    $addedUsers += 1;
-                } catch (\Exception $err) {
-                    db()::rollback();
-                    continue;
-                }
+                    UserShell::createUser($columnsArr["username"], $columnsArr["password"]);
+                });
+                $addedUsers += 1;
+            } catch (\Throwable $err) {
+                $this->bulkErrors[] = "$username: " . $err->getMessage();
+                @error_log("bulk create {$username}: " . $err->getMessage());
+                continue;
             }
         }
 
         return $addedUsers;
     }
+
+    /** reasons why some accounts of the last bulk run were not created */
+    public $bulkErrors = [];
 
     public function dataTableList($pdata, $uid)
     {

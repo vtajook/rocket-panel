@@ -346,6 +346,56 @@ class UserShell
         self::shellExec("sudo pkill nethogs");
     }
 
+    /**
+     * Established SSH client sockets with the kernel's byte counters.
+     * Returns a list of ["peer" => "ip:port", "pids" => [..], "acked" => bytes sent to the client, "recv" => bytes from it],
+     * or null when ss cannot be run.
+     */
+    public static function connectionCounters($port)
+    {
+        $port = (int) $port;
+        $text = self::shellExec("sudo ss -H -tinp state established '( sport = :$port )' 2>/dev/null");
+        if (!is_string($text) || $text === '') {
+            return null;
+        }
+        return self::parseCounters($text);
+    }
+
+    public static function parseCounters($text)
+    {
+        $result = [];
+        $cur    = null;
+        foreach (preg_split("/\r\n|\n|\r/", (string) $text) as $line) {
+            if (trim($line) === '') {
+                continue;
+            }
+            if ($line[0] !== ' ' && $line[0] !== "\t") {
+                // header line of one socket: ... local peer users:(("sshd",pid=1,fd=4),...)
+                $cur = null;
+                $pos = strpos($line, 'users:');
+                if ($pos !== false && preg_match_all('/pid=(\d+)/', $line, $m)) {
+                    $cols = preg_split('/\s+/', trim(substr($line, 0, $pos)));
+                    $peer = end($cols);
+                    if ($peer !== false && strpos($peer, ':') !== false) {
+                        $cur = ["peer" => $peer, "pids" => array_values(array_unique($m[1])), "acked" => 0, "recv" => 0];
+                    }
+                }
+                continue;
+            }
+            if ($cur !== null) {
+                if (preg_match('/bytes_acked:(\d+)/', $line, $x)) {
+                    $cur["acked"] = (float) $x[1];
+                }
+                if (preg_match('/bytes_received:(\d+)/', $line, $y)) {
+                    $cur["recv"] = (float) $y[1];
+                }
+                $result[] = $cur;
+                $cur = null;
+            }
+        }
+        return $result;
+    }
+
     public static function allUsers()
     {
         $usersList  = [];

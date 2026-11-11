@@ -153,7 +153,94 @@ class Cronjob extends \App\Models\BaseModel
         }
     }
 
+    /**
+     * Traffic accounting from the kernel's own per-connection counters (`ss -tinp`):
+     * bytes sent to / received from each SSH client socket. One cheap command per run,
+     * instead of nethogs sniffing every packet for 5 seconds (that was the CPU hog).
+     * Counted in MB like the rest of the panel. The first run only records a baseline.
+     */
     public function syncTraffic()
+    {
+        $port = (int) getenv("PORT_SSH");
+        if ($port < 1) {
+            return;
+        }
+        $out = UserShell::connectionCounters($port);
+        if ($out === null) {
+            return;
+        }
+
+        // pid -> account name, from the online snapshot taken by multiUser a moment ago
+        $pidUser = [];
+        foreach ((array) getLocalOnlienUsers() as $username => $sessions) {
+            foreach ((array) $sessions as $session) {
+                if (!empty($session["pid"])) {
+                    $pidUser[(string) $session["pid"]] = $username;
+                }
+            }
+        }
+
+        $stateFile = PATH_STORAGE . DS . "traffic_state.json";
+        $hadState  = is_file($stateFile);
+        $old       = $hadState ? json_decode((string) @file_get_contents($stateFile), true) : [];
+        $old       = is_array($old) ? $old : [];
+        $new       = [];
+        $perUser   = [];
+
+        foreach ($out as $conn) {
+            $user = null;
+            foreach ($conn["pids"] as $pid) {
+                if (isset($pidUser[$pid])) {
+                    $user = $pidUser[$pid];
+                    break;
+                }
+            }
+            $key = $conn["peer"] . "|" . implode(",", $conn["pids"]);
+            $new[$key] = [$conn["acked"], $conn["recv"]];
+            if ($user === null || !$hadState) {
+                continue;
+            }
+            $before = isset($old[$key]) ? $old[$key] : [0, 0];
+            $dl = $conn["acked"] - $before[0];
+            $ul = $conn["recv"]  - $before[1];
+            if ($dl < 0 || $ul < 0) {      // counters restarted (reused port): count what is there now
+                $dl = $conn["acked"];
+                $ul = $conn["recv"];
+            }
+            if ($dl > 0 || $ul > 0) {
+                if (!isset($perUser[$user])) {
+                    $perUser[$user] = [0, 0];
+                }
+                $perUser[$user][0] += $dl;
+                $perUser[$user][1] += $ul;
+            }
+        }
+        @file_put_contents($stateFile, json_encode($new), LOCK_EX);
+
+        $mb  = 1048576;
+        $now = time();
+        foreach ($perUser as $username => $d) {
+            $dl = $d[0] / $mb;
+            $ul = $d[1] / $mb;
+            if ($dl + $ul < 0.0005) {
+                continue;
+            }
+            $q = db("traffics")->where("username", $username);
+            if ($q->count()) {
+                $q->update([
+                    "download" => new \Illuminate\Database\Query\Expression(sprintf("download + %.6F", $dl)),
+                    "upload"   => new \Illuminate\Database\Query\Expression(sprintf("upload + %.6F", $ul)),
+                    "total"    => new \Illuminate\Database\Query\Expression(sprintf("total + %.6F", $dl + $ul)),
+                    "utime"    => $now,
+                ]);
+            } else {
+                db("traffics")->insert(["username" => $username, "download" => $dl, "upload" => $ul, "total" => $dl + $ul, "ctime" => $now, "utime" => 0]);
+            }
+        }
+    }
+
+    /** the old nethogs based accounting (kept for reference, no longer scheduled) */
+    public function syncTrafficNethogs()
     {
 
         $trafficFilePath = PATH_STORAGE . DS . "traffics.json";

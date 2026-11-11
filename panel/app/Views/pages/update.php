@@ -12,6 +12,8 @@
         <p>آخرین نسخه در گیت‌هاب: <strong dir="ltr"><?= $remote !== '' ? htmlspecialchars($remote) : "نامشخص" ?></strong></p>
         <?php if ($hasUpdate) { ?>
             <div class="alert alert-info">نسخه جدید موجود است.</div>
+        <?php } elseif ($remote === '') { ?>
+            <div class="alert alert-warning">نسخه گیت‌هاب خوانده نشد (اینترنت سرور یا گیت‌هاب). می‌توانید بروزرسانی را امتحان کنید.</div>
         <?php } else { ?>
             <div class="alert alert-success">✅ آخرین نسخه نصب است؛ نیازی به بروزرسانی نیست.</div>
         <?php } ?>

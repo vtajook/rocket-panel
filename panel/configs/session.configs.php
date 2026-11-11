@@ -31,7 +31,7 @@ $configs['session']['domain'] = null;
 // secure: bool
 $configs['session']['secure'] = false;
 // httponly: bool
-$configs['session']['httponly'] = false;
+$configs['session']['httponly'] = true;
 // ini_settings: array
 // https://www.php.net/manual/en/session.configuration.php
 // be carefull, danger of performance leaks 

@@ -208,13 +208,14 @@ function trafficToGB($traffic)
 
 function userIPAddress()
 {
-    $ip = "";
-    if (!empty($_SERVER['HTTP_CLIENT_IP'])) {
-        $ip = $_SERVER['HTTP_CLIENT_IP'];
-    } elseif (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-        $ip = $_SERVER['HTTP_X_FORWARDED_FOR'];
-    } else {
-        $ip = $_SERVER['REMOTE_ADDR'];
+    // the address that really connected; forwarding headers count only when a proxy on this same
+    // machine added them (otherwise anybody can fake their address and dodge the login limit)
+    $ip = isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : '';
+    if (($ip === '127.0.0.1' || $ip === '::1') && !empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+        $first = trim(explode(',', $_SERVER['HTTP_X_FORWARDED_FOR'])[0]);
+        if (filter_var($first, FILTER_VALIDATE_IP)) {
+            $ip = $first;
+        }
     }
     return $ip;
 }

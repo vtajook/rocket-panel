@@ -34,9 +34,17 @@ class Login extends BaseController
             return $response->withStatus(400)->withJson($validate);
         }
 
+        // too many wrong passwords from one address: stop guessing for a while
+        $failFile = PATH_STORAGE . DS . 'login_fail_' . md5((string) userIPAddress()) . '.json';
+        $fails    = is_file($failFile) ? json_decode((string) @file_get_contents($failFile), true) : null;
+        if (is_array($fails) && time() - (int) $fails['t'] < 900 && (int) $fails['c'] >= 8) {
+            return $response->withStatus(429)->withJson(["status" => "error", "messages" => ["تعداد تلاش‌های ناموفق زیاد بود؛ ۱۵ دقیقه دیگر دوباره امتحان کنید"]]);
+        }
+
         $aModel   = new \App\Models\Admins($this);
         $result   = $aModel->checkAdminLogin($pdata);
         if ($result) {
+            @unlink($failFile);
 
             $userId       = $result->id;
             $sessionName  = "admin_login";
@@ -63,15 +71,19 @@ class Login extends BaseController
 
             if (isset($pdata['remember'])) {
                 $sessName = getConfig("session")["name"];
-                setcookie(
-                    $sessName,
-                    session()::id(),
-                    time() + (50 * 86400),
-                    '/'
-                );
+                setcookie($sessName, session()::id(), [
+                    'expires'  => time() + (50 * 86400),
+                    'path'     => '/',
+                    'httponly' => true,
+                    'samesite' => 'Lax',
+                ]);
             }
            return $response->withStatus(200)->withJson(["next_url" => baseUrl("dashboard")]);
         }
+
+        $count = (is_array($fails) && time() - (int) $fails['t'] < 900) ? (int) $fails['c'] + 1 : 1;
+        $first = (is_array($fails) && time() - (int) $fails['t'] < 900) ? (int) $fails['t'] : time();
+        @file_put_contents($failFile, json_encode(["c" => $count, "t" => $first]), LOCK_EX);
 
         try {
             \App\Libraries\TgNotify::panelLogin(isset($pdata['username']) ? $pdata['username'] : '', false);

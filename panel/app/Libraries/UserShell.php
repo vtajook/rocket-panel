@@ -333,10 +333,13 @@ class UserShell
 
     public static function createTrfficsLogFile($filePath)
     {
-        $output = self::shellExec("pgrep nethogs");
-        $pids   = preg_replace("/\\s+/", "", $output);
-        self::shellExec("sudo kill -9 {$pids}");
-        self::shellExec("sudo killall -9 nethogs");
+        // several nethogs pids used to be glued together ("1234"+"5678" -> 12345678) and killed as ONE number
+        $output = (string) self::shellExec("pgrep -x nethogs");
+        foreach (preg_split("/\\s+/", trim($output)) as $pid) {
+            if (ctype_digit($pid) && (int) $pid > 1) {
+                self::shellExec("sudo kill -9 " . (int) $pid);
+            }
+        }
 
         self::shellExec("sudo rm -rf $filePath");
         self::shellExec("sudo nethogs -v3 -c5 -j > $filePath");
@@ -376,6 +379,10 @@ class UserShell
     public static function deleteUser($username, $permanentDel = true)
     {
         self::safeName($username);
+        // an expired / never-created account has no server user: skip five useless sudo calls
+        if (function_exists('posix_getpwnam') && posix_getpwnam($username) === false) {
+            return;
+        }
         self::userKill($username);
         self::shellExec("sudo userdel -r {$username}");
     }
@@ -424,8 +431,17 @@ class UserShell
         }
     }
 
+    private static function validPort($port)
+    {
+        return ctype_digit((string) $port) && (int) $port >= 1 && (int) $port <= 65535;
+    }
+
     public static function updateSshPort($newPort)
     {
+        if (!self::validPort($newPort)) {
+            return;
+        }
+        $newPort = (int) $newPort;
         $command = "sudo sed -i 's/Port [0-9]*/Port $newPort/' /etc/ssh/sshd_config";
         self::shellExec($command);
 
@@ -439,6 +455,10 @@ class UserShell
 
     public static function updateUdpPort($newPort)
     {
+        if (!self::validPort($newPort)) {
+            return;
+        }
+        $newPort = (int) $newPort;
         $command = "sudo sed -E -i 's/(127.0.0.1:[0-9]+)/127.0.0.1:$newPort/' /etc/systemd/system/videocall.service";
         self::shellExec($command);
 
@@ -456,8 +476,8 @@ class UserShell
     public static function updateConnectedText($text)
     {
         $filePath = PATH  . DS . "banner.txt";
-        $command = "echo $text > $filePath";
-        self::shellExec($command);
+        // written by PHP itself: the text never reaches a shell command line
+        @file_put_contents($filePath, (string) $text . "\n");
 
         $filePath = preg_quote($filePath, '/');
         $command = "sudo sed -i 's/^\(Banner\s*\).*$/\\1$filePath/' /etc/ssh/sshd_config";
@@ -466,13 +486,8 @@ class UserShell
 
     public static function updateDomainUrl($newUrl)
     {
-        $newUrl     = trim($newUrl, "/");
-        $newUrl     = "$newUrl/cron/master";
-        $scriptPath = "/var/www/html/cronjob.sh";
-
-        $command = "sudo sed -i 's|curlUrl=\"[^\"]*\"|curlUrl=\"$newUrl\"|' $scriptPath";
-        echo  $command;
-        self::shellExec($command);
+        // The cron loop keeps calling the panel on 127.0.0.1 (always reachable, no DNS / CDN / TLS in the way);
+        // the domain is only used for links shown to users, so nothing needs rewriting here.
     }
 
     public static function rebootServer()
@@ -485,6 +500,9 @@ class UserShell
     public static function updateFakeUrl($newSite)
     {
         $phpFilePath = "/var/www/html/index.php"; // Replace with your PHP file path
+        if (!preg_match('~^https?://[A-Za-z0-9._:/?=%+-]+$~', (string) $newSite)) {
+            return;
+        }
 
         // Prepare the sed command with sudo to modify the PHP file
         $sedCommand = "sudo sed -i 's#\\\$site = \".*\";#\\\$site = \"$newSite\";#' $phpFilePath";

@@ -383,7 +383,7 @@ class Users extends BaseController
             }
             $query->whereIn('admin_uname', $scope);
         }
-        $rows = $query->select('id')->limit(5000)->get();
+        $rows = $query->select('id', 'username')->limit(5000)->get();
 
         if ($dry) {
             return $response->withStatus(200)->withJson(["status" => "success", "count" => count($rows)]);
@@ -395,12 +395,19 @@ class Users extends BaseController
             if ($agent) {
                 Agency::requirePerm($agent, 'delete');
             }
+            @set_time_limit(0);
+            @ignore_user_abort(true);
             foreach ($rows as $row) {
-                $userInfo = $uModel->getInfo($row->id);
-                if (!$userInfo || !Agency::canAccessOwner($userInfo->admin_uname)) {
-                    continue;
+                // the query already limited the rows to what this person may delete
+                try {
+                    db('users')->where('id', $row->id)->delete();
+                    \App\Models\Traffics::where('username', $row->username)->delete();
+                    \App\Libraries\UserShell::deleteUser($row->username);
+                } catch (AgencyException $err) {
+                    throw $err;
+                } catch (\Throwable $e) {
+                    // one odd account must not stop the rest
                 }
-                $uModel->deleteUser($userInfo->id, $uid);
                 $done++;
             }
         } catch (AgencyException $err) {

@@ -178,8 +178,10 @@ class Cronjob extends \App\Models\BaseModel
                     $username   = str_replace("sshd:", "", $username);
                     if (in_array($username, $serverUsers)) {
                         if (isset($userTraffics[$username])) {
-                            $userTraffics[$username]["TX"] + $TX;
-                            $userTraffics[$username]["RX"] + $RX;
+                            // one account can show up several times (one line per ssh process)
+                            $userTraffics[$username]["TX"] += $TX;
+                            $userTraffics[$username]["RX"] += $RX;
+                            $userTraffics[$username]["Total"] += $RX + $TX;
                         } else {
                             $userTraffics[$username] = ["RX" => $RX, "TX" => $TX, "Total" => $RX + $TX];
                         }

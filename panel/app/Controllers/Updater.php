@@ -54,7 +54,15 @@ class Updater extends BaseController
         }
         $lock = $this->logFile() . ".run";
         if (is_file($lock) && time() - filemtime($lock) < 600) {
-            return $response->withStatus(409)->withJson(["status" => "error", "messages" => ["بروزرسانی در حال انجام است"]]);
+            // a lock left behind by a finished / dead run must not block the next one
+            $log      = (string) @file_get_contents($this->logFile());
+            $finished = strpos($log, "UPDATE-FINISHED") !== false || strpos($log, "UPDATE-FAILED") !== false;
+            $running  = trim((string) @shell_exec("pgrep -f 'rocket-panel --update' 2>/dev/null")) !== '';
+            if ($finished || !$running) {
+                @unlink($lock);
+            } else {
+                return $response->withStatus(409)->withJson(["status" => "error", "messages" => ["بروزرسانی در حال انجام است (چند دقیقه صبر کنید و صفحه را باز کنید)"]]);
+            }
         }
         @file_put_contents($lock, (string) time());
         @file_put_contents($this->logFile(), "[" . date("Y-m-d H:i:s") . "] شروع بروزرسانی\n");

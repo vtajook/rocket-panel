@@ -453,8 +453,9 @@ function githubLastVersion()
     if (!$url) {
         return false;
     }
-    $context = stream_context_create(array("http" => array("timeout" => 8, "header" => "User-Agent: rocket-panel\r\n")));
-    $text = trim((string) @file_get_contents($url, false, $context));
+    $context = stream_context_create(array("http" => array("timeout" => 8, "header" => "User-Agent: rocket-panel\r\nCache-Control: no-cache\r\n")));
+    // raw.githubusercontent caches each exact URL for minutes: a changing query string gets the latest file
+    $text = trim((string) @file_get_contents($url . (strpos($url, '?') === false ? '?' : '&') . 't=' . time(), false, $context));
     return preg_match('/^[0-9][0-9A-Za-z.\-]*$/', $text) ? $text : false;
 }
 

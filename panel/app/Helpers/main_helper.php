@@ -363,10 +363,14 @@ function convertToEnNum($string)
 
 function formatTraffice($traffic)
 {
+    // two decimals, trailing zeros dropped: 0.45 MB, 1.5 GB (it used to round everything to whole numbers)
+    $fmt = function ($v) {
+        return rtrim(rtrim(number_format($v, 2), '0'), '.');
+    };
     if ($traffic < 1024) {
-        return number_format(round($traffic, 2)) . " MB";
+        return $fmt($traffic) . " MB";
     }
-    return number_format(round($traffic / 1024, 2)) . " GB";
+    return $fmt($traffic / 1024) . " GB";
 }
 
 function calcDifferenceDate($startDate, $endDate)

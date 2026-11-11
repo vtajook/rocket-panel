@@ -220,6 +220,22 @@ function userIPAddress()
     return $ip;
 }
 
+/** failed-attempt limiter kept in small files: true when this client already used up its tries */
+function tooManyFails($bucket, $max, $window = 900)
+{
+    $f = PATH_STORAGE . DS . 'rl_' . $bucket . '_' . md5((string) userIPAddress()) . '.json';
+    $d = is_file($f) ? json_decode((string) @file_get_contents($f), true) : null;
+    return is_array($d) && time() - (int) $d['t'] < $window && (int) $d['c'] >= $max;
+}
+
+function noteFail($bucket, $window = 900)
+{
+    $f = PATH_STORAGE . DS . 'rl_' . $bucket . '_' . md5((string) userIPAddress()) . '.json';
+    $d = is_file($f) ? json_decode((string) @file_get_contents($f), true) : null;
+    $live = is_array($d) && time() - (int) $d['t'] < $window;
+    @file_put_contents($f, json_encode(["c" => $live ? (int) $d['c'] + 1 : 1, "t" => $live ? (int) $d['t'] : time()]), LOCK_EX);
+}
+
 function getServerIp()
 {
     return !empty($_SERVER["SERVER_ADDR"]) ? $_SERVER["SERVER_ADDR"] : "";

@@ -11,9 +11,9 @@ function makeCurlReq($endpoint = "", $method = "POST", $data = [])
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
 
-    if (!empty($headers)) {
-        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-    }
+    // the panel only sees this server; tell it which visitor this is so its attempt limit counts them one by one
+    $clientIp = isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : '';
+    curl_setopt($ch, CURLOPT_HTTPHEADER, ["X-Forwarded-For: " . $clientIp]);
 
     if ($method === 'POST' || $method === 'PUT') {
         curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($data));

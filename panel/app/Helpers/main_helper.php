@@ -457,10 +457,24 @@ function githubLastVersion()
     if (!$url) {
         return false;
     }
+    $ok = function ($text) {
+        $text = trim((string) $text);
+        return preg_match('/^[0-9][0-9A-Za-z.\-]*$/', $text) ? $text : false;
+    };
+
+    // GitHub's API sees a new commit within seconds; raw.githubusercontent.com can lag for minutes
+    if (preg_match('~raw\.githubusercontent\.com/([^/]+)/([^/]+)/([^/]+)/(.+)$~', $url, $m)) {
+        $api = "https://api.github.com/repos/{$m[1]}/{$m[2]}/contents/{$m[4]}?ref={$m[3]}";
+        $ctx = stream_context_create(array("http" => array("timeout" => 6,
+            "header" => "User-Agent: rocket-panel\r\nAccept: application/vnd.github.raw\r\n")));
+        $v = $ok(@file_get_contents($api, false, $ctx));
+        if ($v) {
+            return $v;
+        }
+    }
+
     $context = stream_context_create(array("http" => array("timeout" => 8, "header" => "User-Agent: rocket-panel\r\nCache-Control: no-cache\r\n")));
-    // raw.githubusercontent caches each exact URL for minutes: a changing query string gets the latest file
-    $text = trim((string) @file_get_contents($url . (strpos($url, '?') === false ? '?' : '&') . 't=' . time(), false, $context));
-    return preg_match('/^[0-9][0-9A-Za-z.\-]*$/', $text) ? $text : false;
+    return $ok(@file_get_contents($url . (strpos($url, '?') === false ? '?' : '&') . 't=' . time(), false, $context));
 }
 
 function getServerName()

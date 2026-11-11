@@ -675,8 +675,8 @@ class Backup extends \App\Models\BaseModel
         $created = 0;
         $missing = 0;
         $invalid = [];
-        $uModel  = new \App\Models\Users();
-        foreach ((array) $uModel->activeUsers() as $user) {
+        // only the two columns needed, no join: this runs every minute
+        foreach (db('users')->where('status', 'active')->select('username', 'password')->get() as $user) {
             if (isset($existing[$user->username]) || (string) $user->password === '') {
                 continue;
             }

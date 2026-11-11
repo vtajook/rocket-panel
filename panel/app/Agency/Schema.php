@@ -18,7 +18,7 @@ if (!defined('PATH')) die();
 class Schema
 {
     /** bump when a migration step is added */
-    const VERSION = 3;
+    const VERSION = 4;
 
     private static $checked = false;
 
@@ -100,6 +100,9 @@ class Schema
             self::addColumns($schema, 'users', [
                 'customer_id' => function ($t) { $t->integer('customer_id')->default(0); },
             ]);
+
+            // indexes the panel's own queries filter / join on
+            self::addIndexes('users', ['status' => 'status', 'end_date' => 'end_date', 'customer_id' => 'customer_id']);
 
             if (!$schema->hasTable('agency_ledger')) {
                 $schema->create('agency_ledger', function ($t) {
@@ -238,6 +241,26 @@ class Schema
             @fclose($lock);
         }
         return $ok;
+    }
+
+    /** create an index only when it is missing; a failure never breaks the migration */
+    private static function addIndexes($table, $indexes)
+    {
+        foreach ($indexes as $name => $column) {
+            try {
+                $prefix = Capsule::connection()->getTablePrefix();
+                $driver = Capsule::connection()->getDriverName();
+                if ($driver === 'mysql') {
+                    $have = Capsule::connection()->select("SHOW INDEX FROM `{$prefix}{$table}` WHERE Key_name = ?", [$name]);
+                    if (!$have) {
+                        Capsule::connection()->statement("ALTER TABLE `{$prefix}{$table}` ADD INDEX `{$name}` (`{$column}`)");
+                    }
+                } else {
+                    Capsule::connection()->statement("CREATE INDEX IF NOT EXISTS \"{$prefix}{$table}_{$name}\" ON \"{$prefix}{$table}\" (\"{$column}\")");
+                }
+            } catch (\Throwable $e) {
+            }
+        }
     }
 
     private static function addColumns($schema, $table, $columns)

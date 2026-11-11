@@ -292,9 +292,10 @@ set_admin_login() { # $1 user $2 pass  (first admin only; resellers are never to
 configure_cron() { # $1 panel port
     local port="$1" f="$WEB/cronjob.sh"
     # the loop script is rewritten only when missing or pointing to another port
-    if [ ! -f "$f" ] || ! grep -q "127.0.0.1:$port/cron/master" "$f"; then
+    if [ ! -f "$f" ] || ! grep -q "127.0.0.1:$port/cron/master" "$f" || ! grep -q "rocket-cron-v2" "$f"; then
         cat > "$f" <<EOF
 #!/bin/bash
+# rocket-cron-v2: one run at a time (a slow run can no longer pile up parallel requests)
 curlUrl="http://127.0.0.1:$port/cron/master"
 lockfile="/tmp/call_url.lock"
 if [ -e "\$lockfile" ] && kill -0 "\$(cat \$lockfile 2>/dev/null)" 2>/dev/null; then
@@ -303,8 +304,8 @@ fi
 echo \$\$ > "\$lockfile"
 trap 'rm -f "\$lockfile"' EXIT
 while true; do
-    curl -s -m 20 -o /dev/null "\$curlUrl" &
-    sleep 5
+    curl -s -m 25 -o /dev/null "\$curlUrl"
+    sleep 3
 done
 EOF
         chmod +x "$f"
@@ -312,6 +313,63 @@ EOF
         rm -f /tmp/call_url.lock
     fi
     (crontab -l 2>/dev/null | grep -v "cronjob.sh"; echo "* * * * * $f") | crontab -
+}
+
+# ---------------------------------------------------------------- speed / memory
+configure_perf() {
+    # PHP opcache (compiled code stays in memory) -- the default is small and re-checks files every 2s
+    local d
+    for d in /etc/php/7.4/apache2/conf.d /etc/php/7.4/cli/conf.d; do
+        [ -d "$d" ] || continue
+        cat > "$d/99-rocket.ini" <<'EOF'
+opcache.enable=1
+opcache.memory_consumption=96
+opcache.interned_strings_buffer=8
+opcache.max_accelerated_files=4000
+opcache.validate_timestamps=1
+opcache.revalidate_freq=30
+realpath_cache_size=1M
+realpath_cache_ttl=300
+EOF
+    done
+    # opcache is useless for the one-shot CLI
+    [ -f /etc/php/7.4/cli/conf.d/99-rocket.ini ] && sed -i 's/^opcache.enable=1/opcache.enable=0/' /etc/php/7.4/cli/conf.d/99-rocket.ini
+
+    # Apache: compress + cache the panel's static files, keep idle connections short, cap workers
+    a2enmod deflate expires headers >/dev/null 2>&1
+    cat > /etc/apache2/conf-available/rocket-perf.conf <<'EOF'
+KeepAlive On
+KeepAliveTimeout 3
+MaxKeepAliveRequests 200
+Timeout 60
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/css application/javascript text/javascript application/json image/svg+xml
+</IfModule>
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType text/css "access plus 7 days"
+    ExpiresByType application/javascript "access plus 7 days"
+    ExpiresByType text/javascript "access plus 7 days"
+    ExpiresByType image/png "access plus 30 days"
+    ExpiresByType image/svg+xml "access plus 30 days"
+    ExpiresByType font/woff2 "access plus 30 days"
+    ExpiresByType application/font-woff2 "access plus 30 days"
+</IfModule>
+<IfModule mpm_prefork_module>
+    StartServers 2
+    MinSpareServers 2
+    MaxSpareServers 6
+    MaxRequestWorkers 60
+    MaxConnectionsPerChild 1000
+</IfModule>
+EOF
+    a2enconf rocket-perf >/dev/null 2>&1
+    if apache2ctl configtest >/dev/null 2>&1; then
+        systemctl reload apache2 2>/dev/null || true     # graceful: running requests finish, SSH users untouched
+    else
+        a2disconf rocket-perf >/dev/null 2>&1
+        rm -f /etc/apache2/conf-available/rocket-perf.conf
+    fi
 }
 
 # ---------------------------------------------------------------- stability defaults
@@ -400,6 +458,7 @@ do_install() {
     install_nethogs
     configure_cron "$pp"
     configure_tuning
+    configure_perf
     timedatectl set-timezone Asia/Tehran >/dev/null 2>&1
     rm -rf "$TMP"
     curl -s -m 20 -o /dev/null "http://127.0.0.1:$pp/login"   # lets the panel run its migrations
@@ -428,8 +487,10 @@ do_update() { # panel files only
     ensure_update_sudo
     chown -R www-data:www-data "$PANEL/storage"
     # only the web server is reloaded (graceful): SSH, tunnels and logged-in users are not touched
-    systemctl reload apache2 2>/dev/null
     local pp; pp=$(env_get PORT_PANEL)
+    configure_cron "${pp:-8081}"      # rewrites the cron loop only when it is an older version
+    configure_perf                    # opcache / Apache speed settings (graceful reload inside)
+    systemctl reload apache2 2>/dev/null
     curl -s -m 20 -o /dev/null "http://127.0.0.1:${pp:-8081}/login"
     echo "version: ${ver_old:-?} -> $(cat "$PANEL/VERSION" 2>/dev/null)"
     rm -rf "$TMP"

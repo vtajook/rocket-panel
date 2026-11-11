@@ -115,11 +115,14 @@ class DataTable
 
     private function getPaging()
     {
+        // same contract as the original panel: no "length" (or -1) means every row,
+        // API clients such as the bot look the new account up in the full list
         $iStart  = isset($this->postData['start']) ? intval($this->postData['start']) : 0;
-        $iLength = isset($this->postData['length']) ? intval($this->postData['length']) : 25;
-        if ($iLength > 0) {
-            $this->query->offset(max(0, $iStart))->limit(min($iLength, 1000));
+        $rawLen  = isset($this->postData['length']) ? $this->postData['length'] : '';
+        if ($rawLen === '' || $rawLen === null || intval($rawLen) <= 0) {
+            return;
         }
+        $this->query->offset(max(0, $iStart))->limit(intval($rawLen));
     }
 
     private function getOrdering()

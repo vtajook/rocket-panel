@@ -91,6 +91,71 @@ class Settings extends BaseController
 
 
 
+    public function account($request, $response, $args)
+    {
+        $viewData = [];
+        $viewData["pageTitle"]      = "حساب مدیر";
+        $viewData["viewContent"]    = "settings/index.php";
+        $viewData["activeTab"]      = "account";
+        $viewData["activePage"]     = "account";
+        $this->render($viewData);
+    }
+
+    /** the manager changes their own login: old username + password required */
+    public function ajaxSaveAccount($request, $response, $args)
+    {
+        $fail = function ($msg) use ($response) {
+            return $response->withStatus(400)->withJson(["status" => "error", "messages" => $msg]);
+        };
+        if (session()->get("imp_admin")) {
+            return $fail("در حالت ورود به‌جای نماینده نمی‌توان حساب مدیر را عوض کرد");
+        }
+        $uid = (int) $request->getAttribute('uid');
+        $p   = $request->getParsedBody();
+        $p   = is_array($p) ? $p : [];
+        $row = db('admins')->where('id', $uid)->first();
+        if (!$row || $row->role !== 'admin') {
+            return $fail("فقط مدیر می‌تواند این بخش را تغییر دهد");
+        }
+        $curUser = trim((string) getArrayValue($p, 'current_username'));
+        $curPass = (string) getArrayValue($p, 'current_password');
+        if ($curUser !== $row->username || !password_verify($curPass, $row->password)) {
+            return $fail("نام کاربری یا رمز فعلی درست نیست");
+        }
+        $newUser = trim((string) getArrayValue($p, 'new_username'));
+        $newPass = (string) getArrayValue($p, 'new_password');
+        if ($newUser === '' && $newPass === '') {
+            return $fail("نام کاربری یا رمز جدید را وارد کنید");
+        }
+        $update = ['utime' => time()];
+        if ($newUser !== '' && $newUser !== $row->username) {
+            if (!preg_match('/^[A-Za-z0-9][A-Za-z0-9_.-]{2,31}$/', $newUser)) {
+                return $fail("نام کاربری جدید: ۳ تا ۳۲ حرف انگلیسی، عدد، نقطه، خط تیره یا زیرخط");
+            }
+            if (db('admins')->where('username', $newUser)->where('id', '!=', $uid)->count()) {
+                return $fail("این نام کاربری قبلا استفاده شده است");
+            }
+            $update['username'] = $newUser;
+        }
+        if ($newPass !== '') {
+            if (strlen($newPass) < 6) {
+                return $fail("رمز جدید باید حداقل ۶ حرف باشد");
+            }
+            if ($newPass !== (string) getArrayValue($p, 'new_password2')) {
+                return $fail("تکرار رمز جدید یکسان نیست");
+            }
+            $update['password'] = password_hash($newPass, PASSWORD_BCRYPT);
+        }
+        $update['token_ver'] = (int) $row->token_ver + 1;
+        db('admins')->where('id', $uid)->update($update);
+        if (isset($update['username'])) {
+            db('users')->where('admin_uname', $row->username)->update(['admin_uname' => $update['username']]);
+        }
+        session()->set("token_ver", $update['token_ver']);
+        \App\Agency\Agency::flush();
+        return $response->withStatus(200)->withJson(["status" => "success", "messages" => "ذخیره شد"]);
+    }
+
     public function tg($request, $response, $args)
     {
         $viewData = [];

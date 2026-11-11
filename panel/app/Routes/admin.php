@@ -25,6 +25,7 @@ $adminPanel = $app->group('', function () use ($app) {
         $app->get('/api',                       'App\Controllers\Settings:api');
         $app->get('/users-panel',               'App\Controllers\Settings:usersPanel');
         $app->get('/tg',                        'App\Controllers\Settings:tg');
+        $app->get('/account',                   'App\Controllers\Settings:account');
     });
 
     $app->group('/pages', function () use ($app) {
@@ -109,6 +110,7 @@ $adminPanel = $app->group('', function () use ($app) {
             $app->post('/users-panel',          'App\Controllers\Settings:ajaxSaveUsersPanel');
             $app->post('/sync-users',           'App\Controllers\Settings:ajaxSyncUsers');
             $app->post('/tg',                   'App\Controllers\Settings:ajaxSaveTg');
+            $app->post('/account',              'App\Controllers\Settings:ajaxSaveAccount');
             $app->post('/tg-test',              'App\Controllers\Settings:ajaxTgTest');
             $app->group('/public-api', function () use ($app) {
                 $app->post('',                  'App\Controllers\Settings:ajaxAaddPublicApi');

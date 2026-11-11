@@ -36,6 +36,12 @@
                 </a>
             </li>
             <li class="nav-item">
+                <a class="nav-link <?= $activeTab == "account" ? "active" : "" ?>" href="<?= baseUrl("settings/account") ?>">
+                    <?= inlineIcon("users") ?>
+                    حساب مدیر
+                </a>
+            </li>
+            <li class="nav-item">
                 <a class="nav-link <?= $activeTab == "tg" ? "active" : "" ?>" href="<?= baseUrl("settings/tg") ?>">
                     <?= inlineIcon("server") ?>
                     تلگرام

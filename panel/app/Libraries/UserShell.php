@@ -12,26 +12,15 @@ if (!defined('PATH')) die();
 
 class UserShell
 {
+    /** how many accounts are connected: taken from the snapshot the cron keeps fresh (no lsof, no directory listing) */
     public static function totalOnlineUsers()
     {
-        $sshPort = getenv("PORT_SSH");
-        $online = 0;
-
-        $output = self::shellExec("sudo lsof -i :$sshPort -nP | grep -v root | grep ESTABLISHED |awk '{print $3}' |sort -u");
-
-        if (!empty($output)) {
-            $list = preg_split("/\r\n|\n|\r/", $output);
-            $list = array_filter($list);
-
-            $serverUsers = self::allUsers();
-            foreach ($list  as $item) {
-                if (in_array($item, $serverUsers)) {
-                    $online++;
-                }
-            }
+        $file = PATH_STORAGE . DS . "online.json";
+        if (is_file($file) && time() - filemtime($file) < 120) {
+            $list = json_decode((string) @file_get_contents($file), true);
+            return is_array($list) ? count($list) : 0;
         }
-
-        return   $online;
+        return count(self::onlineUsers());
     }
 
     /**
@@ -158,8 +147,6 @@ class UserShell
 
     public static function ramData()
     {
-        $output = self::shellExec("free | grep Mem");
-
         $result = [
             "total"         => 0,
             "free"          => 0,
@@ -169,30 +156,22 @@ class UserShell
             "usage_text_color" => "",
         ];
 
-        if (!empty($output)) {
-            $parts = preg_split('/\s+/', $output);
+        $info = @file_get_contents('/proc/meminfo');
+        if ($info && preg_match('/MemTotal:\s+(\d+)/', $info, $t) && preg_match('/MemAvailable:\s+(\d+)/', $info, $a) && $t[1] > 0) {
+            $total     = (int) $t[1] * 1024;
+            $available = (int) $a[1] * 1024;
+            $used      = $total - $available;
+            $usagePercent = round(($used / $total) * 100);
 
-            if (!empty($parts) && count($parts) == 8) {
-                $total      = intval($parts[1]) * 1024;
-                $used       = intval($parts[2]) * 1024;
-                $available  = intval($parts[6]) * 1024;
-
-                $usagePercent = round(($used / $total) * 100);
-
-                $result["total"]            = convertToPrettyUnit($total);
-                $result["used"]             = convertToPrettyUnit($used);
-                $result["available"]        = convertToPrettyUnit($available);
-                $result["usage_percent"]    = $usagePercent;
-                $result["usage_color"]      = getUsageColor($usagePercent);
-                $result["usage_text_color"] = getContrastTextColor($result["usage_color"]);
-            }
+            $result["total"]            = convertToPrettyUnit($total);
+            $result["used"]             = convertToPrettyUnit($used);
+            $result["available"]        = convertToPrettyUnit($available);
+            $result["usage_percent"]    = $usagePercent;
+            $result["usage_color"]      = getUsageColor($usagePercent);
+            $result["usage_text_color"] = getContrastTextColor($result["usage_color"]);
         }
 
         return $result;
-    }
-
-    public function uptimeDate()
-    {
     }
 
     public static function cpuData()
@@ -218,30 +197,35 @@ class UserShell
 
     public static function cpuName()
     {
-        $cpuName = self::shellExec('grep "model name" /proc/cpuinfo | uniq');
-        $cpuName = trim(str_replace("model name\t: ", "", $cpuName));
-        return $cpuName;
+        $info = @file_get_contents('/proc/cpuinfo');
+        if ($info && preg_match('/^model name\s*:\s*(.+)$/m', $info, $m)) {
+            return trim($m[1]);
+        }
+        return "";
     }
 
     public static function cpuCores()
     {
-        $cpuCores = self::shellExec('nproc');
-        return trim($cpuCores);
+        $info = @file_get_contents('/proc/cpuinfo');
+        $n    = $info ? preg_match_all('/^processor\s*:/m', $info) : 0;
+        return $n > 0 ? $n : 1;
     }
 
     public static function serverUptime()
     {
-        $uptime = self::shellExec('uptime -p');
-        $uptime = str_replace("up", "", $uptime);
-        $uptime = str_replace("hour", "ساعت", $uptime);
-        $uptime = str_replace("hours", "ساعت", $uptime);
-        $uptime = str_replace("minute", "دقیقه", $uptime);
-        $uptime = str_replace("minutes", "دقیقه", $uptime);
-        $uptime = str_replace("year", "سال", $uptime);
-        $uptime = str_replace("years", "سال", $uptime);
-        $uptime = str_replace("day", "روز", $uptime);
-        $uptime = str_replace("s", "", $uptime);
-        return $uptime;
+        $raw = @file_get_contents('/proc/uptime');
+        if (!$raw) {
+            return "";
+        }
+        $sec   = (int) floatval($raw);
+        $days  = intdiv($sec, 86400);
+        $hours = intdiv($sec % 86400, 3600);
+        $mins  = intdiv($sec % 3600, 60);
+        $parts = [];
+        if ($days)  { $parts[] = $days . " روز"; }
+        if ($hours) { $parts[] = $hours . " ساعت"; }
+        $parts[] = $mins . " دقیقه";
+        return " " . implode("، ", $parts);
     }
 
     public static function diskData()
@@ -277,49 +261,37 @@ class UserShell
         ];
     }
 
+    /** total bytes received by the server's network cards since boot (loopback excluded) */
     public static function traffixRx($convert = false)
     {
-        $download = 0;
-        $output = self::shellExec("netstat -e -n -i |  grep \"RX packets\" | grep -v \"RX packets 0\" | grep -v \" B)\"");
+        $v = self::netBytes(0);
+        return $convert ? convertToPrettyUnit($v) : $v;
+    }
 
-        if (!empty($output)) {
-            $output = preg_split("/\r\n|\n|\r/", $output);
-            foreach ($output as $parts) {
-                $partsArr = explode(" ", $parts);
-                if (!isset($parts[13])) {
-                    $partsArr[13] = null;
-                }
-                if (is_numeric($partsArr[13])) {
-                    $download += $partsArr[13];
-                }
+
+    private static function netBytes($col)
+    {
+        $sum = 0;
+        foreach ((array) @file('/proc/net/dev', FILE_IGNORE_NEW_LINES) as $line) {
+            if (strpos($line, ':') === false) {
+                continue;
+            }
+            list($iface, $rest) = explode(':', $line, 2);
+            if (trim($iface) === 'lo') {
+                continue;
+            }
+            $f = preg_split('/\s+/', trim($rest));
+            if (isset($f[$col]) && is_numeric($f[$col])) {
+                $sum += (float) $f[$col];
             }
         }
-        if ($convert) {
-            return convertToPrettyUnit($download);
-        }
-        return ($download);
+        return $sum;
     }
 
     public static function traffixTx($convert = false)
     {
-        $upload = 0;
-        $output = self::shellExec("netstat -e -n -i |  grep \"TX packets\" | grep -v \"TX packets 0\" | grep -v \" B)\"");
-        if (!empty($output)) {
-            $output = preg_split("/\r\n|\n|\r/", $output);
-            foreach ($output as $parts) {
-                $partsArr = explode(" ", $parts);
-                if (!isset($parts[13])) {
-                    $partsArr[13] = null;
-                }
-                if (is_numeric($partsArr[13])) {
-                    $upload += $partsArr[13];
-                }
-            }
-        }
-        if ($convert) {
-            return convertToPrettyUnit($upload);
-        }
-        return ($upload);
+        $v = self::netBytes(8);
+        return $convert ? convertToPrettyUnit($v) : $v;
     }
 
     public static function killUsers($pids = [])
@@ -390,21 +362,6 @@ class UserShell
         return is_string($out) && strpos($out, '__EXIT:0') !== false;
     }
 
-    public static function createTrfficsLogFile($filePath)
-    {
-        // several nethogs pids used to be glued together ("1234"+"5678" -> 12345678) and killed as ONE number
-        $output = (string) self::shellExec("pgrep -x nethogs");
-        foreach (preg_split("/\\s+/", trim($output)) as $pid) {
-            if (ctype_digit($pid) && (int) $pid > 1) {
-                self::shellExec("sudo kill -9 " . (int) $pid);
-            }
-        }
-
-        self::shellExec("sudo rm -rf $filePath");
-        self::shellExec("sudo nethogs -v3 -c5 -j > $filePath");
-        self::shellExec("sudo pkill nethogs");
-    }
-
     /**
      * Established SSH client sockets with the kernel's byte counters.
      * Returns a list of ["peer" => "ip:port", "pids" => [..], "acked" => bytes sent to the client, "recv" => bytes from it],
@@ -453,18 +410,6 @@ class UserShell
             }
         }
         return $result;
-    }
-
-    public static function allUsers()
-    {
-        $usersList  = [];
-        $output     = self::shellExec("ls /home");
-        if (!empty($output)) {
-            $usersList = preg_split("/\r\n|\n|\r/", $output);
-            $usersList = array_filter($usersList);
-        }
-
-        return $usersList;
     }
 
     public static function createUser($username, $password)

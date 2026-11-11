@@ -231,7 +231,7 @@ class TgNotify
         $seen = self::state('tg_usage');
         $rows = db('users')->join('traffics', 'traffics.username', '=', 'users.username')
             ->where('users.status', 'active')->where('users.traffic', '>', 0)
-            ->whereRaw('traffics.total >= users.traffic * ?', [$pct / 100])
+            ->whereRaw('cp_traffics.total >= cp_users.traffic * ?', [$pct / 100])
             ->select('users.username', 'users.traffic', 'traffics.total', 'users.admin_uname')->limit(300)->get();
         $lines = [];
         $now   = [];

@@ -10,7 +10,6 @@ namespace App\Models;
 use \App\Libraries\UserShell;
 use \App\Models\Settings;
 use \App\Models\Users;
-use \App\Models\Traffics;
 
 class Cronjob extends \App\Models\BaseModel
 {
@@ -102,14 +101,6 @@ class Cronjob extends \App\Models\BaseModel
     public function syncSysUsers()
     {
         (new \App\Models\Backup())->syncSysUsers(300);
-    }
-
-    public function onlineUsers()
-    {
-        $onlineUsers    = UserShell::onlineUsers();
-
-        //save to json file
-        setLocalOnlienUsers($onlineUsers);
     }
 
     private function multiUser()
@@ -260,81 +251,6 @@ class Cronjob extends \App\Models\BaseModel
                 }
             }
         }
-    }
-
-    /** the old nethogs based accounting (kept for reference, no longer scheduled) */
-    public function syncTrafficNethogs()
-    {
-
-        $trafficFilePath = PATH_STORAGE . DS . "traffics.json";
-        $tModel          = new Traffics();
-
-        if (file_exists($trafficFilePath)) {
-            $tcontent   = file_get_contents($trafficFilePath);
-            $trafficlog = preg_split("/\r\n|\n|\r/", $tcontent);
-            $trafficlog = array_filter($trafficlog);
-            $lastdata   = end($trafficlog);
-            $jsonData   = json_decode($lastdata, true);
-
-
-            if (is_array($jsonData)) {
-
-                $serverUsers    = UserShell::allUsers();
-                $userTraffics   = [];
-                foreach ($jsonData as $value) {
-                    $TX         = round($value["TX"], 0);
-                    $RX         = round($value["RX"], 0);
-                    $username   = preg_replace("/\\s+/", "", $value["name"]);
-                    $username   = str_replace("sshd:", "", $username);
-                    if (in_array($username, $serverUsers)) {
-                        if (isset($userTraffics[$username])) {
-                            // one account can show up several times (one line per ssh process)
-                            $userTraffics[$username]["TX"] += $TX;
-                            $userTraffics[$username]["RX"] += $RX;
-                            $userTraffics[$username]["Total"] += $RX + $TX;
-                        } else {
-                            $userTraffics[$username] = ["RX" => $RX, "TX" => $TX, "Total" => $RX + $TX];
-                        }
-                    }
-                }
-
-                $trafficBase = 12;
-                foreach ($userTraffics as $username => $data) {
-
-                    $userTraffic = $tModel->getUserTraffic($username);
-
-                    $rx     = round($data["RX"]);
-                    $rx     = $rx / 10;
-                    $rx     = round(($rx / $trafficBase) * 100);
-
-                    $tx     = round($data["TX"]);
-                    $tx     = $tx / 10;
-                    $tx     = round(($tx / $trafficBase) * 100);
-                    $total = $rx + $tx;
-
-                    $trafficColumn = [
-                        "upload"    => $tx,
-                        "download"  => $rx,
-                        "total"     => $total,
-                        "username"  => $username,
-                    ];
-                    if ($userTraffic) {
-                        $trafficColumn["upload"]    += $userTraffic->upload;
-                        $trafficColumn["download"]  += $userTraffic->download;
-                        $trafficColumn["total"]     += $userTraffic->total;
-                        $trafficColumn["utime"]     = time();
-                    } else {
-                        $trafficColumn["ctime"]     = time();
-                        $trafficColumn["utime"]     = 0;
-                    }
-
-                    Traffics::updateOrCreate(["username" => $username], $trafficColumn);
-                }
-            }
-        }
-
-
-        UserShell::createTrfficsLogFile($trafficFilePath);
     }
 
     /** accounts with a traffic cap (e.g. 50 MB tests): check often so they cannot overshoot */

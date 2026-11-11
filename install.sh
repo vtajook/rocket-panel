@@ -122,7 +122,6 @@ www-data ALL=(ALL:ALL) NOPASSWD: /usr/sbin/adduser, /usr/sbin/userdel, /usr/bin/
 www-data ALL=(ALL:ALL) NOPASSWD: /usr/bin/kill, /usr/bin/killall, /usr/bin/pkill, /usr/bin/pgrep, /usr/bin/timeout
 www-data ALL=(ALL:ALL) NOPASSWD: /usr/bin/lsof, /usr/sbin/lsof, /usr/bin/ss, /usr/bin/netstat
 www-data ALL=(ALL:ALL) NOPASSWD: /usr/bin/sed, /usr/bin/rm, /usr/bin/mysqldump
-www-data ALL=(ALL:ALL) NOPASSWD: /usr/sbin/nethogs, /usr/bin/nethogs, /usr/local/sbin/nethogs
 www-data ALL=(ALL:ALL) NOPASSWD: /usr/bin/systemctl restart sshd, /usr/bin/systemctl restart ssh, /usr/bin/systemctl daemon-reload, /usr/bin/systemctl restart videocall, /usr/bin/systemctl reboot
 www-data ALL=(ALL:ALL) NOPASSWD: /usr/local/sbin/rocket-panel --update
 EOF
@@ -227,12 +226,6 @@ EOF
     systemctl daemon-reload
     systemctl enable videocall >/dev/null 2>&1
     systemctl restart videocall
-}
-
-install_nethogs() {
-    command -v nethogs >/dev/null 2>&1 && return 0
-    yellow "nethogs is missing; installing it (needed for traffic accounting)"
-    bash <(curl -Ls --ipv4 https://raw.githubusercontent.com/rocket-ap/nethogs-json/master/install.sh) || yellow "nethogs install failed; traffic accounting will stay off"
 }
 
 php_hash() { PW="$1" php -r 'echo password_hash(getenv("PW"), PASSWORD_BCRYPT);'; }
@@ -455,7 +448,6 @@ do_install() {
     configure_apache "$pp" "$oldpp"
     configure_ssh_port "$sp"
     install_udpgw "$up"
-    install_nethogs
     configure_cron "$pp"
     configure_tuning
     configure_perf

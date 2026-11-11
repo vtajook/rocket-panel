@@ -13,6 +13,11 @@ class Cronjob extends BaseController
 
     public function master($request, $response, $arg)
     {
+        // the job runner is for the server itself only: nobody outside may trigger it
+        $ip = isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : '';
+        if ($ip !== '127.0.0.1' && $ip !== '::1') {
+            return $response->withStatus(403);
+        }
         $cModel = new \App\Models\Cronjob();
         $cModel->init();
 

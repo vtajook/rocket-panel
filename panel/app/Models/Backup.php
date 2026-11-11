@@ -675,12 +675,13 @@ class Backup extends \App\Models\BaseModel
         $created = 0;
         $missing = 0;
         $invalid = [];
+        $budget  = microtime(true) + 22;     // one cron run never works longer than this
         // only the two columns needed, no join: this runs every minute
         foreach (db('users')->where('status', 'active')->select('username', 'password')->get() as $user) {
             if (isset($existing[$user->username]) || (string) $user->password === '') {
                 continue;
             }
-            if ($limit > 0 && $created >= $limit) {
+            if (($limit > 0 && $created >= $limit) || microtime(true) > $budget) {
                 $missing++;
                 continue;
             }

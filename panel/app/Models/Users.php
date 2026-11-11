@@ -278,7 +278,7 @@ class Users extends \App\Models\BaseModel
 
         $query = db($this->table)->select($select)
             ->leftJoin('admins', 'admins.username', '=', 'users.admin_uname')
-            ->join('traffics', 'traffics.username', '=', 'users.username');
+            ->leftJoin('traffics', 'traffics.username', '=', 'users.username');
 
         $scope = \App\Agency\Agency::scopeUsernames();
         if ($scope !== null) {
@@ -308,7 +308,7 @@ class Users extends \App\Models\BaseModel
         if (!empty($pdata["status"])) {
             if ($pdata["status"] === "never") {
                 // never connected: no start date yet and no traffic used
-                $query->where("users.start_date", 0)->where("traffics.total", "<=", 0);
+                $query->where("users.start_date", 0)->whereRaw("COALESCE(cp_traffics.total, 0) <= 0");
             } else {
                 $query->where("users.status", $pdata["status"]);
             }
@@ -341,6 +341,16 @@ class Users extends \App\Models\BaseModel
         $num = (!empty($pdata['start'])) ? $pdata['start'] : 0;
 
         $currentTime = time();
+        // thousands of accounts share a few dates: convert each distinct day once
+        $jdCache   = [];
+        $diffCache = [];
+        $jd = function ($ts) use (&$jdCache) {
+            $k = date('Ymd', $ts);
+            if (!isset($jdCache[$k])) {
+                $jdCache[$k] = Jalalian::forge($ts)->format('Y/m/d');
+            }
+            return $jdCache[$k];
+        };
         foreach ($users as $user) {
             $user = (array) $user;
 
@@ -356,21 +366,25 @@ class Users extends \App\Models\BaseModel
             $usersOnline     = $onlineUsers && isset($onlineUsers[$username]) ? $onlineUsers[$username] : [];
 
             if ($user["utime"]) {
-                $utime = Jalalian::forge($user["ctime"])->format('Y/m/d');
+                $utime = $jd($user["ctime"]);
             }
 
             if ($uStartDate) {
-                $startDate = Jalalian::forge($uStartDate)->format('Y/m/d');
+                $startDate = $jd($uStartDate);
             }
 
             if ($uEndDate) {
-                $endDate = Jalalian::forge($uEndDate)->format('Y/m/d');
+                $endDate = $jd($uEndDate);
             }
 
             if ($uEndDate && $uStartDate) {
                 $uStartDate     = getStartOfDate($uStartDate);
                 $uEndDate       = getEndOfDate($uEndDate);
-                $diffrenceDate  = calcDifferenceDate($uStartDate, $uEndDate);
+                $dk = date('Ymd', $uStartDate) . '-' . date('Ymd', $uEndDate);
+                if (!isset($diffCache[$dk])) {
+                    $diffCache[$dk] = calcDifferenceDate($uStartDate, $uEndDate);
+                }
+                $diffrenceDate  = $diffCache[$dk];
                 $remainingDays  = floor(($uEndDate - $currentTime) / 86400);
             }
 
@@ -389,12 +403,12 @@ class Users extends \App\Models\BaseModel
             $row['status_label']            = userStatusLabel($user["status"]);
             $row['start_date']              = $startDate;
             $row['end_date']                = $endDate;
-            $row['ctime']                   = Jalalian::forge($user["ctime"])->format('Y/m/d');
+            $row['ctime']                   = $jd($user["ctime"]);
             $row['utime']                   = $utime;
             $row['traffic']                 = $user["traffic"];
-            $row['consumer_traffic']        = $user["consumer_traffic"];
+            $row['consumer_traffic']        = (float) $user["consumer_traffic"];
             $row['traffic_format']          = $user["traffic"] ? formatTraffice($user["traffic"]) : "نامحدود";
-            $row['consumer_traffic_format'] = formatTraffice($user["consumer_traffic"]);
+            $row['consumer_traffic_format'] = formatTraffice((float) $user["consumer_traffic"]);
             $row['diffrence_date']          = $diffrenceDate;
             $row['remaining_days']          = $remainingDays;
             $row['online_users']            = $usersOnline;
@@ -422,7 +436,7 @@ class Users extends \App\Models\BaseModel
         ];
 
         $query = db($this->table)->select($select)
-            ->join('traffics', 'traffics.username', '=', 'users.username')
+            ->leftJoin('traffics', 'traffics.username', '=', 'users.username')
             ->leftJoin('admins', 'admins.username', '=', 'users.admin_uname')
             ->where("users.id", $userId)
             ->get();
@@ -437,6 +451,7 @@ class Users extends \App\Models\BaseModel
             $currentTime                    = time();
             $row->is_expired                = false;
             $row->format_traffic            = $row->traffic ? formatTraffice($row->traffic) : "نامحدود";
+            $row->consumer_traffic          = (float) $row->consumer_traffic;
             $row->format_consumer_traffic   = formatTraffice($row->consumer_traffic);
 
             if ($row->end_date) {
@@ -503,11 +518,12 @@ class Users extends \App\Models\BaseModel
         ];
 
         $query = db($this->table)->select($select)
-            ->join('traffics', 'traffics.username', '=', 'users.username')
+            ->leftJoin('traffics', 'traffics.username', '=', 'users.username')
             ->where("users.username", $username)
             ->get();
         if ($query->count()) {
             $row  = $query->first();
+            $row->consumer_traffic = (float) $row->consumer_traffic;
             return $row;
         }
         return false;

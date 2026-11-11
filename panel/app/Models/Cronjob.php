@@ -101,7 +101,7 @@ class Cronjob extends \App\Models\BaseModel
     /** accounts that exist in the database but not on the server (e.g. after a restore) */
     public function syncSysUsers()
     {
-        (new \App\Models\Backup())->syncSysUsers(100);
+        (new \App\Models\Backup())->syncSysUsers(300);
     }
 
     public function onlineUsers()
@@ -217,10 +217,24 @@ class Cronjob extends \App\Models\BaseModel
                 $perUser[$user][1] += $ul;
             }
         }
-        @file_put_contents($stateFile, json_encode($new), LOCK_EX);
-
         $mb  = 1048576;
         $now = time();
+        // one transaction for the whole batch: thousands of single-row commits (one disk sync each) cost far more
+        $conn = \Illuminate\Database\Capsule\Manager::connection();
+        $conn->beginTransaction();
+        try {
+            $this->saveTrafficBatch($perUser, $mb, $now);
+            $conn->commit();
+            // the baseline moves only after the numbers are safely stored
+            @file_put_contents($stateFile, json_encode($new), LOCK_EX);
+        } catch (\Throwable $e) {
+            $conn->rollBack();
+            @error_log("syncTraffic: " . $e->getMessage());
+        }
+    }
+
+    private function saveTrafficBatch($perUser, $mb, $now)
+    {
         foreach ($perUser as $username => $d) {
             $dl = $d[0] / $mb;
             $ul = $d[1] / $mb;

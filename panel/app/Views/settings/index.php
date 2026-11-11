@@ -35,6 +35,12 @@
                     پنل کاربران
                 </a>
             </li>
+            <li class="nav-item">
+                <a class="nav-link <?= $activeTab == "tg" ? "active" : "" ?>" href="<?= baseUrl("settings/tg") ?>">
+                    <?= inlineIcon("server") ?>
+                    تلگرام
+                </a>
+            </li>
         </ul>
 
         <div class="tab-pane fade show active">

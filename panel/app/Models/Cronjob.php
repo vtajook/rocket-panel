@@ -26,7 +26,11 @@ class Cronjob extends \App\Models\BaseModel
             'syncTraffic'       => 1,
             'syncSysUsers'      => 60,
             'limitedTraffic'    => 5,
-            'appLastVersion'    => 86400
+            'appLastVersion'    => 86400,
+            'tgBackup'          => 10,
+            'tgLogin'           => 5,
+            'tgUsage'           => 60,
+            'tgExpiry'          => 900
         ];
 
 
@@ -68,6 +72,38 @@ class Cronjob extends \App\Models\BaseModel
         }
     }
 
+
+    public function tgBackup()
+    {
+        \App\Libraries\TgNotify::cronBackup();
+    }
+
+    public function tgUsage()
+    {
+        \App\Libraries\TgNotify::cronUsage();
+    }
+
+    public function tgExpiry()
+    {
+        \App\Libraries\TgNotify::cronExpiry();
+    }
+
+    /** new logins since the last tick (compares online.json with the previous copy) */
+    public function tgLogin()
+    {
+        $c = \App\Libraries\TgNotify::cfg();
+        $prevFile = PATH_STORAGE . DS . "tg_online_prev.json";
+        if (empty($c['tgb_login'])) {
+            @unlink($prevFile);
+            return;
+        }
+        $now  = getLocalOnlienUsers();
+        $prev = is_file($prevFile) ? json_decode((string) @file_get_contents($prevFile), true) : null;
+        if (is_array($prev)) {
+            \App\Libraries\TgNotify::loginAlert($prev, $now);
+        }
+        @file_put_contents($prevFile, json_encode($now));   // first run only records the baseline
+    }
 
     public function appLastVersion()
     {

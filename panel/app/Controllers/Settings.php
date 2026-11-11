@@ -91,6 +91,65 @@ class Settings extends BaseController
 
 
 
+    public function tg($request, $response, $args)
+    {
+        $viewData = [];
+        $viewData["pageTitle"]      = "اعلان و بکاپ تلگرام";
+        $viewData["viewContent"]    = "settings/index.php";
+        $viewData["activeTab"]      = "tg";
+        $viewData["activePage"]     = "tg";
+        $viewData["tg"]             = \App\Libraries\TgNotify::cfg();
+        $this->render($viewData);
+    }
+
+    public function ajaxSaveTg($request, $response, $args)
+    {
+        $p = $request->getParsedBody();
+        $p = is_array($p) ? $p : [];
+        $clean = [
+            'tgb_token'       => trim(isset($p['tgb_token']) ? $p['tgb_token'] : ''),
+            'tgb_chat'        => trim(isset($p['tgb_chat']) ? $p['tgb_chat'] : ''),
+            'tgb_backup'      => !empty($p['tgb_backup']) ? 1 : 0,
+            'tgb_interval'    => max(1, min(1440, (int) (isset($p['tgb_interval']) ? $p['tgb_interval'] : 60))),
+            'tgb_usage'       => !empty($p['tgb_usage']) ? 1 : 0,
+            'tgb_usage_pct'   => max(1, min(100, (int) (isset($p['tgb_usage_pct']) ? $p['tgb_usage_pct'] : 80))),
+            'tgb_login'       => !empty($p['tgb_login']) ? 1 : 0,
+            'tgb_expiry'      => !empty($p['tgb_expiry']) ? 1 : 0,
+            'tgb_expiry_days' => max(1, min(30, (int) (isset($p['tgb_expiry_days']) ? $p['tgb_expiry_days'] : 3))),
+        ];
+        if ($clean['tgb_token'] !== '' && !preg_match('/^[0-9]{5,}:[A-Za-z0-9_-]{20,}$/', $clean['tgb_token'])) {
+            return $response->withStatus(400)->withJson(["messages" => "توکن ربات معتبر نیست (مثل 123456:ABC...)"]);
+        }
+        if ($clean['tgb_chat'] !== '' && !preg_match('/^-?[0-9]+([\s,;]+-?[0-9]+)*$/', $clean['tgb_chat'])) {
+            return $response->withStatus(400)->withJson(["messages" => "آیدی عددی باید فقط عدد باشد (چند آیدی با کاما)"]);
+        }
+        $sModel = new \App\Models\Settings($this);
+        foreach ($clean as $k => $v) {
+            $sModel->updateOrCreate(['name' => $k], ['name' => $k, 'value' => (string) $v]);
+        }
+        @unlink(PATH_STORAGE . DS . 'tgbackup.last');   // new interval: first backup soon
+        return $response->withStatus(200)->withJson(["messages" => "ذخیره شد"]);
+    }
+
+    public function ajaxTgTest($request, $response, $args)
+    {
+        $p    = $request->getParsedBody();
+        $what = is_array($p) && isset($p['what']) ? $p['what'] : 'message';
+        if (!\App\Libraries\TgNotify::ready()) {
+            return $response->withStatus(400)->withJson(["messages" => "اول توکن و آیدی عددی را ذخیره کنید"]);
+        }
+        if ($what === 'backup') {
+            @set_time_limit(120);
+            $ok = \App\Libraries\TgNotify::sendBackup($err);
+        } else {
+            list($ok, $err) = \App\Libraries\TgNotify::send("✅ اتصال پنل به تلگرام برقرار است\n🖥 " . \App\Libraries\TgNotify::serverIp());
+        }
+        if ($ok) {
+            return $response->withStatus(200)->withJson(["messages" => "ارسال شد"]);
+        }
+        return $response->withStatus(400)->withJson(["messages" => "ارسال نشد: " . $err . " (اگر سرور به تلگرام دسترسی ندارد خطا طبیعی است؛ ربات را در تلگرام Start کرده باشید)"]);
+    }
+
     public function ajaxSaveSettings($request, $response, $args)
     {
         $validator = new  \App\Validations\Settings();

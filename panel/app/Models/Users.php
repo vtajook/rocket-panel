@@ -142,6 +142,10 @@ class Users extends \App\Models\BaseModel
         $password       = $userInfo->password;
         $remainingDays  = $userInfo->remaining_days;
 
+        if (!$userInfo->start_date) {
+            // never connected: its days are still waiting for the first connection, keep them
+            $remainingDays = (int) $userInfo->expiry_days;
+        }
         if ($remainingDays < 0) {
             $remainingDays  = 0;
         }

@@ -74,17 +74,33 @@ class Users
             $cap  = (float) $info->traffic;
             $nm   = netmodLink($info);
             $np   = npvLink($info);
+            $pct  = $cap > 0 ? min(100, round($used / $cap * 100)) : 0;
+            $dayT = $days >= 0 ? $days . " روز" : "منقضی";
+            $left = $cap > 0 ? formatTraffice(max(0, $cap - $used)) : "نامحدود";
+            $total = $cap > 0 ? formatTraffice($cap) : "نامحدود";
+            $bar  = $pct >= 90 ? "#ef4444" : ($pct >= 70 ? "#f59e0b" : "#22c55e");
+            $card = function ($id, $title, $qr, $link) use ($e) {
+                return '<section class="app" id="s-' . $id . '"><h3>' . $title . '</h3><img alt="QR" src="' . $e($qr) . '">'
+                    . '<div class="lk" id="l-' . $id . '">' . $e($link) . '</div>'
+                    . '<button onclick="cp(\'l-' . $id . '\',this)">کپی لینک</button></section>';
+            };
             $html = '<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' . $e($info->username) . '</title>'
-                . '<style>body{font-family:tahoma,sans-serif;background:#f3f5f9;margin:0;padding:16px;color:#222}.c{max-width:520px;margin:0 auto;background:#fff;border-radius:14px;padding:18px;box-shadow:0 2px 10px #0001}'
-                . 'h2{margin:0 0 12px}.r{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #eee}h3{margin:18px 0 6px;font-size:15px}'
-                . 'textarea{width:100%;box-sizing:border-box;height:70px;direction:ltr;font-size:11px}img{display:block;margin:8px auto;width:230px;height:230px}button{padding:8px 14px;border:0;border-radius:8px;background:#0d6efd;color:#fff}</style></head><body><div class="c">'
-                . '<h2>' . $e($info->username) . '</h2>'
-                . '<div class="r"><span>روز باقی‌مانده</span><b>' . ($days >= 0 ? $days : "منقضی") . '</b></div>'
-                . '<div class="r"><span>حجم مصرفی</span><b>' . $e(formatTraffice($used)) . '</b></div>'
-                . '<div class="r"><span>حجم باقی‌مانده</span><b>' . ($cap > 0 ? $e(formatTraffice(max(0, $cap - $used))) : "نامحدود") . '</b></div>'
-                . '<h3>NetMod</h3><img alt="" src="' . $e(generateNetmodQR($info)) . '"><textarea id="a" readonly>' . $e($nm) . '</textarea><button onclick="c(\'a\')">کپی</button>'
-                . '<h3>NPV Tunnel</h3><img alt="" src="' . $e(generateNpvQR($info)) . '"><textarea id="b" readonly>' . $e($np) . '</textarea><button onclick="c(\'b\')">کپی</button>'
-                . '<script>function c(i){var t=document.getElementById(i);t.select();try{document.execCommand("copy")}catch(e){}}</script></div></body></html>';
+                . '<style>*{box-sizing:border-box}body{margin:0;font-family:Vazirmatn,Tahoma,sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh;padding:18px 14px}'
+                . '.w{max-width:480px;margin:0 auto}.hd{text-align:center;padding:10px 0 18px}.av{width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#06b6d4);display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;margin:0 auto 10px;color:#fff}'
+                . '.hd h1{font-size:20px;margin:0}.st{display:inline-block;margin-top:8px;padding:3px 12px;border-radius:99px;font-size:12px;background:' . ($info->status === "active" ? "#14532d;color:#86efac" : "#7f1d1d;color:#fca5a5") . '}'
+                . '.g{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}.b{background:#1e293b;border-radius:14px;padding:14px;text-align:center}.b small{display:block;color:#94a3b8;font-size:12px;margin-bottom:4px}.b strong{font-size:18px}'
+                . '.tr{background:#1e293b;border-radius:14px;padding:14px;margin-bottom:14px}.tr .t{display:flex;justify-content:space-between;font-size:13px;color:#94a3b8;margin-bottom:8px}.pb{height:10px;background:#334155;border-radius:9px;overflow:hidden}.pb i{display:block;height:100%;width:' . $pct . '%;background:' . $bar . ';border-radius:9px}'
+                . '.tabs{display:flex;gap:8px;margin-bottom:10px}.tabs button{flex:1;padding:10px;border:0;border-radius:12px;background:#1e293b;color:#cbd5e1;font:inherit;cursor:pointer}.tabs button.on{background:#6366f1;color:#fff}'
+                . '.app{display:none;background:#1e293b;border-radius:14px;padding:16px;text-align:center}.app.on{display:block}.app h3{margin:0 0 10px;font-size:15px}.app img{width:220px;height:220px;max-width:100%;background:#fff;padding:8px;border-radius:12px}'
+                . '.lk{direction:ltr;text-align:left;font:11px/1.5 monospace;background:#0f172a;border-radius:10px;padding:10px;margin:12px 0;word-break:break-all;max-height:84px;overflow:auto;color:#94a3b8}'
+                . '.app button{width:100%;padding:12px;border:0;border-radius:12px;background:linear-gradient(135deg,#6366f1,#06b6d4);color:#fff;font:inherit;font-weight:600;cursor:pointer}</style></head><body><div class="w">'
+                . '<div class="hd"><div class="av">' . $e(strtoupper(substr($info->username, 0, 1))) . '</div><h1>' . $e($info->username) . '</h1><span class="st">' . ($info->status === "active" ? "فعال" : "غیرفعال") . '</span></div>'
+                . '<div class="g"><div class="b"><small>زمان باقی‌مانده</small><strong>' . $e($dayT) . '</strong></div><div class="b"><small>حجم باقی‌مانده</small><strong>' . $e($left) . '</strong></div></div>'
+                . '<div class="tr"><div class="t"><span>مصرف: ' . $e(formatTraffice($used)) . '</span><span>کل: ' . $e($total) . '</span></div><div class="pb"><i></i></div></div>'
+                . '<div class="tabs"><button class="on" data-t="nm">NetMod</button><button data-t="npv">NPV Tunnel</button></div>'
+                . str_replace('class="app"', 'class="app on"', $card("nm", "اسکن یا کپی در NetMod", generateNetmodQR($info), $nm)) . $card("npv", "اسکن یا کپی در NPV Tunnel", generateNpvQR($info), $np)
+                . '<script>document.querySelectorAll(".tabs button").forEach(function(b){b.onclick=function(){document.querySelectorAll(".tabs button").forEach(function(x){x.classList.remove("on")});b.classList.add("on");document.querySelectorAll(".app").forEach(function(a){a.classList.remove("on")});document.getElementById("s-"+b.dataset.t).classList.add("on")}});'
+                . 'function cp(i,btn){var t=document.getElementById(i).textContent;function ok(){var o=btn.textContent;btn.textContent="کپی شد ✓";setTimeout(function(){btn.textContent=o},1500)}if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(t).then(ok)}else{var x=document.createElement("textarea");x.value=t;document.body.appendChild(x);x.select();try{document.execCommand("copy");ok()}catch(e){}document.body.removeChild(x)}}</script></div></body></html>';
             $response->getBody()->write($html);
             return $response->withStatus(200)
                 ->withHeader("Content-Type", "text/html; charset=utf-8")

@@ -399,7 +399,7 @@ function npvLink($userInfo, $remark = null)
 function subLink($userInfo)
 {
     $scheme = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? "https" : "http";
-    return "$scheme://" . getServerName() . ":" . getenv("PORT_PANEL") . "/sub/" . $userInfo->token;
+    return "$scheme://" . panelHost() . ":" . getenv("PORT_PANEL") . "/sub/" . $userInfo->token;
 }
 
 /** name shown for the account inside apps: who, days left, traffic left */
@@ -575,6 +575,16 @@ function configHost()
     return $cached !== "" ? $cached : getServerName();
 }
 
+/** the address the panel was opened with (so links given from the panel open the same way); falls back to the server name */
+function panelHost()
+{
+    $h = isset($_SERVER["HTTP_HOST"]) ? preg_replace('~:\d+$~', '', (string) $_SERVER["HTTP_HOST"]) : "";
+    if ($h !== "" && preg_match('~^[A-Za-z0-9.-]+$~', $h) && !in_array(strtolower($h), ["localhost", "127.0.0.1"], true)) {
+        return $h;
+    }
+    return getServerName();
+}
+
 function getServerName()
 {
     return  !empty($_SERVER["SERVER_NAME"]) ? $_SERVER["SERVER_NAME"] : getServerIp();
@@ -585,7 +595,7 @@ function getUserConfig($user)
     $sshPort      = getenv("PORT_SSH");
     $udpPort      = getenv("PORT_UDP");
 
-    $host         = getServerName();
+    $host         = panelHost();
     $baseUrl      = (isset($_SERVER['HTTPS']) ? "https://$host" : "http://$host");
     $userLink     = "$baseUrl/account/" . $user->token;
     return [

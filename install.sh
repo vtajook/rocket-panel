@@ -85,6 +85,7 @@ deploy_code() {
     (cd "$SRC/account" && tar cf - .) | (cd "$WEB/account" && tar xf -)
     (cd "$SRC/bot" && tar cf - .) | (cd "$WEB/bot" && tar xf -)
     cp -f "$SRC/index.php" "$WEB/index.php" 2>/dev/null
+    rm -rf "$WEB/decoy" "$PANEL/storage/fake_site.txt"   # the built-in decoy site was removed
     for d in cache debug logs sessions temp; do mkdir -p "$PANEL/storage/$d"; done
     [ -f "$PANEL/storage/.htaccess" ] || cp "$SRC/panel/storage/.htaccess" "$PANEL/storage/.htaccess" 2>/dev/null
     touch "$PANEL/banner.txt"

@@ -473,7 +473,7 @@ do_install() {
 # lets the panel's update button run the root updater (only this one command)
 ensure_update_sudo() {
     local f=/etc/sudoers.d/rocket-panel-update
-    printf 'www-data ALL=(root) NOPASSWD: /usr/local/sbin/rocket-panel --update\n' > "$f.new"
+    printf 'www-data ALL=(root) NOPASSWD: /usr/local/sbin/rocket-panel --update, /usr/bin/ss, /usr/sbin/ss\n' > "$f.new"
     chmod 440 "$f.new"
     if visudo -cf "$f.new" >/dev/null 2>&1; then mv -f "$f.new" "$f"; else rm -f "$f.new"; red "could not install the sudo rule for the update button"; fi
 }

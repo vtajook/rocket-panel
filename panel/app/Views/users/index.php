@@ -65,7 +65,11 @@
                             <option value="de_active">غیر فعال</option>
                             <option value="expiry_date">انقضای تاریخ</option>
                             <option value="expiry_traffic">انقضای ترافیک</option>
+                            <option value="never">هیچ‌وقت وصل نشده</option>
                         </select>
+                        <button type="button" class="btn btn-sm btn-danger mt-1 w-100" id="btn-delete-never-list" style="display:none">
+                            حذف همین لیست (وصل‌نشده‌ها)
+                        </button>
                     </div>
                 </div>
                 <div class="col-6 col-lg-2">
@@ -163,6 +167,27 @@
 </script>
 <script>
     $(function() {
+        // "never connected" filter: show the delete-this-list button
+        $("select[name=status]").on("change", function() {
+            $("#btn-delete-never-list").toggle($(this).val() === "never");
+        }).trigger("change");
+        $("#btn-delete-never-list").on("click", function() {
+            var btn = $(this).prop("disabled", true);
+            var url = baseUrl("ajax/users/purge-expired");
+            $.post(url, {dry: 1, never: 1, older_days: 0}).done(function(r) {
+                btn.prop("disabled", false);
+                if (!r.count) { alert("اکانت وصل‌نشده‌ای وجود ندارد."); return; }
+                if (!confirm(r.count + " اکانتِ این لیست (هیچ‌وقت وصل نشده و حجمی مصرف نکرده) برای همیشه از پنل و سرور حذف می‌شوند و قابل بازگشت نیست. ادامه می‌دهید؟")) { return; }
+                btn.prop("disabled", true);
+                $.post(url, {never: 1, older_days: 0}).done(function(x) {
+                    alert(x.count + " اکانت حذف شد.");
+                    location.reload();
+                }).fail(function(xhr) {
+                    var m = xhr.responseJSON && xhr.responseJSON.messages ? xhr.responseJSON.messages[0] : "خطا";
+                    alert(m); btn.prop("disabled", false);
+                });
+            }).fail(function() { btn.prop("disabled", false); alert("خطا در ارتباط با پنل"); });
+        });
         $("#btn-purge-never").on("click", function() {
             var days = prompt("اکانت‌هایی که هیچ‌وقت وصل نشده‌اند و حجمی مصرف نکرده‌اند و حداقل چند روز از ساختشان گذشته حذف شوند؟ (عدد؛ ۰ یعنی همه)", "7");
             if (days === null) { return; }

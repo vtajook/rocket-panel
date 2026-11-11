@@ -306,7 +306,12 @@ class Users extends \App\Models\BaseModel
         }
 
         if (!empty($pdata["status"])) {
-            $query->where("users.status", $pdata["status"]);
+            if ($pdata["status"] === "never") {
+                // never connected: no start date yet and no traffic used
+                $query->where("users.start_date", 0)->where("traffics.total", "<=", 0);
+            } else {
+                $query->where("users.status", $pdata["status"]);
+            }
         }
 
         if (!empty($pdata["limit_users"])) {

@@ -34,6 +34,10 @@
             <?= inlineIcon("trash", "icon") ?>
             حذف منقضی‌ها
         </button>
+        <button class="btn btn-outline-danger btn-float-icon" id="btn-purge-never" type="button">
+            <?= inlineIcon("trash", "icon") ?>
+            حذف وصل‌نشده‌ها
+        </button>
         <button class="btn btn-danger btn-float-icon" style="display: none;" id="btn-bulk-delete">
             <?= inlineIcon("trash", "icon") ?>
             حذف گروهی
@@ -159,6 +163,27 @@
 </script>
 <script>
     $(function() {
+        $("#btn-purge-never").on("click", function() {
+            var days = prompt("اکانت‌هایی که هیچ‌وقت وصل نشده‌اند و حجمی مصرف نکرده‌اند و حداقل چند روز از ساختشان گذشته حذف شوند؟ (عدد؛ ۰ یعنی همه)", "7");
+            if (days === null) { return; }
+            days = parseInt(days, 10);
+            if (isNaN(days) || days < 0) { alert("عدد معتبر وارد کنید."); return; }
+            var btn = $(this).prop("disabled", true);
+            var url = baseUrl("ajax/users/purge-expired");
+            $.post(url, {dry: 1, never: 1, older_days: days}).done(function(r) {
+                btn.prop("disabled", false);
+                if (!r.count) { alert("اکانت وصل‌نشده‌ای با این شرط وجود ندارد."); return; }
+                if (!confirm(r.count + " اکانت که هیچ‌وقت وصل نشده‌اند برای همیشه از پنل و سرور حذف می‌شوند و قابل بازگشت نیست. ادامه می‌دهید؟")) { return; }
+                btn.prop("disabled", true);
+                $.post(url, {never: 1, older_days: days}).done(function(x) {
+                    alert(x.count + " اکانت حذف شد.");
+                    location.reload();
+                }).fail(function(xhr) {
+                    var m = xhr.responseJSON && xhr.responseJSON.messages ? xhr.responseJSON.messages[0] : "خطا";
+                    alert(m); btn.prop("disabled", false);
+                });
+            }).fail(function() { btn.prop("disabled", false); alert("خطا در ارتباط با پنل"); });
+        });
         $("#btn-purge-expired").on("click", function() {
             var btn = $(this).prop("disabled", true);
             var url = baseUrl("ajax/users/purge-expired");

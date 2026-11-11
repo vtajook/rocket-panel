@@ -372,9 +372,20 @@ class Users extends BaseController
         $days  = isset($pdata['older_days']) ? max(0, (int) $pdata['older_days']) : 0;
         $agent = $this->agent();
 
-        $query = db('users')->whereIn('status', ['expiry_date', 'expiry_traffic']);
-        if ($days > 0) {
-            $query->where('end_date', '<', time() - $days * 86400);
+        if (!empty($pdata['never'])) {
+            // accounts that never connected (no start date) and used no traffic, created at least $days days ago
+            $query = db('users')->where('start_date', 0)
+                ->whereNotExists(function ($q) {
+                    $q->selectRaw('1')->from('traffics')->whereColumn('traffics.username', 'users.username')->where('traffics.total', '>', 0);
+                });
+            if ($days > 0) {
+                $query->where('ctime', '<', time() - $days * 86400);
+            }
+        } else {
+            $query = db('users')->whereIn('status', ['expiry_date', 'expiry_traffic']);
+            if ($days > 0) {
+                $query->where('end_date', '<', time() - $days * 86400);
+            }
         }
         $scope = Agency::scopeUsernames(container()->userInfo);
         if ($scope !== null) {
@@ -413,7 +424,7 @@ class Users extends BaseController
         } catch (AgencyException $err) {
             return $this->fail($response, $err->getMessage());
         }
-        Agency::log('user.purge', null, ['deleted' => $done]);
+        Agency::log(!empty($pdata['never']) ? 'user.purge_never' : 'user.purge', null, ['deleted' => $done]);
         return $response->withStatus(200)->withJson(["status" => "success", "count" => $done]);
     }
 

@@ -15,3 +15,6 @@ panel/assets/backup/*.sql
 /rig/
 node_modules/
 panel/storage/*.ver
+
+# backups the panel creates
+panel/storage/backups/

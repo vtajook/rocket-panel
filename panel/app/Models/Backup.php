@@ -19,26 +19,51 @@ class Backup extends \App\Models\BaseModel
         ini_set('max_execution_time', '0');
     }
 
+    /** where the panel keeps the backups it creates: outside anything the web server serves */
+    public static function backupDir()
+    {
+        $dir = PATH_STORAGE . DS . "backups";
+        if (!is_dir($dir)) {
+            @mkdir($dir, 0775, true);
+        }
+        // older versions kept them in assets/backup, which is public: move them in
+        $old = PATH_ASSETS . DS . "backup";
+        foreach ((array) glob($old . "/*.sql") as $file) {
+            if (basename($file) !== "db.sql") {
+                @rename($file, $dir . DS . basename($file));
+            }
+        }
+        return $dir;
+    }
+
+    /** full path of one of our backup files, or null for any name that is not one */
+    public static function backupFile($name)
+    {
+        $name = basename((string) $name);
+        if (!preg_match('/^[A-Za-z0-9_.-]+\.sql$/', $name) || strpos($name, "..") !== false) {
+            return null;
+        }
+        $path = self::backupDir() . DS . $name;
+        return is_file($path) ? $path : null;
+    }
+
     public function getUserBackups()
     {
-        $backupPath = PATH_ASSETS . DS . "backup";
+        $backupPath = self::backupDir();
         $sqlFiles = array();
 
-        $folderName = str_replace(PATH, "", $backupPath);
-
-
         $files = glob($backupPath . '/*.sql');
-        foreach ($files as $file) {
+        foreach ((array) $files as $file) {
             $fileTime   = filectime($file);
             $jdate      = Jalalian::forge($fileTime)->format('Y/m/d - H:i');
             $filename   =  basename($file);
             $sqlFiles[$fileTime] = [
                 "name"  =>  $filename,
-                "url"   =>  baseUrl("$folderName/$filename"),
+                "url"   =>  baseUrl("settings/backup/download/" . rawurlencode($filename)),
                 "date"  =>  $jdate,
             ];
         }
-        arsort($sqlFiles);
+        krsort($sqlFiles);
 
         return array_values($sqlFiles);
     }

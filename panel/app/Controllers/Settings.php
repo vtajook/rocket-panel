@@ -373,7 +373,7 @@ class Settings extends BaseController
         $date           = jdate()->format("Y-m-d_H-i");
         $backupName     = "$appName-$date";
 
-        $backupPath     = PATH_ASSETS . DS . "backup";
+        $backupPath     = \App\Models\Backup::backupDir();
         $backupFilePath = $backupPath . DS . "$backupName.sql";
 
         if (!is_dir($backupPath)) {
@@ -389,15 +389,25 @@ class Settings extends BaseController
 
     public function ajaxDeleteExportFile($request, $response, $args)
     {
-        $pdata      = $request->getParsedBody();
-        if (!empty($pdata["filename"])) {
-
-            $filename = $pdata["filename"];
-
-            $filePath = PATH_ASSETS . DS . "backup" . DS . $filename;
-            if (file_exists($filePath)) {
-                @unlink($filePath);
-            }
+        $pdata    = $request->getParsedBody();
+        $filePath = !empty($pdata["filename"]) ? \App\Models\Backup::backupFile($pdata["filename"]) : null;
+        if ($filePath) {
+            @unlink($filePath);
         }
+    }
+
+    /** backups are private: only a signed-in admin can download them, through this route */
+    public function downloadBackup($request, $response, $args)
+    {
+        $filePath = \App\Models\Backup::backupFile(isset($args["name"]) ? $args["name"] : "");
+        if (!$filePath) {
+            return $response->withStatus(404);
+        }
+        $fh = fopen($filePath, "rb");
+        return $response->withBody(new \Slim\Http\Stream($fh))
+            ->withHeader("Content-Type", "application/octet-stream")
+            ->withHeader("Content-Disposition", 'attachment; filename="' . basename($filePath) . '"')
+            ->withHeader("Content-Length", (string) filesize($filePath))
+            ->withHeader("Cache-Control", "no-store");
     }
 }

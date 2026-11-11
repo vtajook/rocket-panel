@@ -25,6 +25,7 @@ $adminPanel = $app->group('', function () use ($app) {
         $app->get('/api',                       'App\Controllers\Settings:api');
         $app->get('/users-panel',               'App\Controllers\Settings:usersPanel');
         $app->get('/tg',                        'App\Controllers\Settings:tg');
+        $app->get('/backup/download/{name}',    'App\Controllers\Settings:downloadBackup');
         $app->get('/account',                   'App\Controllers\Settings:account');
     });
 

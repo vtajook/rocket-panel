@@ -49,6 +49,10 @@ class Login extends BaseController
             }
 
             session()->set($sessionName, $userId);
+            try {
+                \App\Libraries\TgNotify::panelLogin($result->username, true, $result->role === 'admin' ? 'مدیر' : 'نماینده');
+            } catch (\Throwable $e) {
+            }
             session()->delete("imp_admin");
             session()->set("token_ver", (int) $agent['token_ver']);
             db('admins')->where('id', $userId)->update(['last_login' => time(), 'last_ip' => substr((string) userIPAddress(), 0, 45)]);
@@ -69,6 +73,10 @@ class Login extends BaseController
            return $response->withStatus(200)->withJson(["next_url" => baseUrl("dashboard")]);
         }
 
+        try {
+            \App\Libraries\TgNotify::panelLogin(isset($pdata['username']) ? $pdata['username'] : '', false);
+        } catch (\Throwable $e) {
+        }
         return $response->withStatus(404);
     }
 }

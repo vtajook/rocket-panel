@@ -60,14 +60,14 @@ class TgNotify
         });
     }
 
-    public static function send($text)
+    public static function send($text, $timeout = 5)
     {
         if (!self::ready()) {
             return [false, 'token / chat id'];
         }
         $res = [false, ''];
         foreach (self::chats() as $chat) {
-            $res = self::call('sendMessage', ['chat_id' => $chat, 'text' => mb_substr($text, 0, 4000)], 5);
+            $res = self::call('sendMessage', ['chat_id' => $chat, 'text' => mb_substr($text, 0, 4000)], $timeout);
         }
         return $res;
     }
@@ -280,28 +280,27 @@ class TgNotify
         self::saveState('tg_expiry', $now);
     }
 
-    /** new connections since the previous snapshot, sent as one message per tick */
-    public static function loginAlert($before, $after)
+    /** sign-in to the panel itself (success, or a wrong password: possible break-in attempt) */
+    public static function panelLogin($username, $ok, $role = '')
     {
         $c = self::cfg();
-        if (empty($c['tgb_login']) || !self::ready() || !is_array($after)) {
+        if (empty($c['tgb_login']) || !self::ready()) {
             return;
         }
-        $before = is_array($before) ? $before : [];
-        $lines  = [];
-        foreach ($after as $user => $conns) {
-            if (isset($before[$user])) {
-                continue;
+        $ip = substr((string) userIPAddress(), 0, 45);
+        if (!$ok) {
+            // at most one failed-login message per IP per minute, so a password-guessing script cannot flood the chat
+            $f = PATH_STORAGE . DS . 'tg_fail_' . md5($ip) . '.txt';
+            if (is_file($f) && time() - filemtime($f) < 60) {
+                return;
             }
-            $ips = [];
-            foreach ($conns as $cn) {
-                $ips[$cn['ip']] = 1;
-            }
-            $lines[] = "• $user — " . implode(', ', array_keys($ips));
+            @file_put_contents($f, '1');
         }
-        if ($lines) {
-            $more = count($lines) > 25 ? "\n… و " . (count($lines) - 25) . " اتصال دیگر" : '';
-            self::send("🔔 ورود کاربر\n" . self::header() . "\n" . implode("\n", array_slice($lines, 0, 25)) . $more);
-        }
+        $who = mb_substr((string) $username, 0, 60);
+        $ua  = isset($_SERVER['HTTP_USER_AGENT']) ? mb_substr($_SERVER['HTTP_USER_AGENT'], 0, 80) : '';
+        $txt = ($ok ? "🔐 ورود به پنل" : "🚨 تلاش ناموفق برای ورود به پنل") . "\n" . self::header()
+             . "\n👤 $who" . ($role !== '' ? " ($role)" : "") . "\n🌐 IP: $ip\n🕒 " . date('Y-m-d H:i:s')
+             . ($ua !== '' ? "\n📱 $ua" : "");
+        self::send($txt, 3);
     }
 }

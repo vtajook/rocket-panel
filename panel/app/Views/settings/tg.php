@@ -39,9 +39,9 @@
     <div class="col-md-6">
         <div class="form-check form-switch mb-2">
             <input class="form-check-input" type="checkbox" name="tgb_login" value="1" id="f-lg" <?= $v('tgb_login') ? 'checked' : '' ?>>
-            <label class="form-check-label" for="f-lg">هشدار ورود کاربر (اتصال جدید، همراه آی‌پی)</label>
+            <label class="form-check-label" for="f-lg">هشدار ورود به خود پنل (مدیر و نماینده؛ شامل تلاش ناموفق، همراه آی‌پی)</label>
         </div>
-        <div class="form-text">با کاربر زیاد، پیام‌ها دسته‌ای و حداکثر ۲۵ مورد در هر پیام می‌آیند.</div>
+        <div class="form-text">برای تشخیص هک: هر ورود موفق و هر رمز اشتباه گزارش می‌شود (رمز اشتباه حداکثر دقیقه‌ای یک بار از هر آی‌پی).</div>
     </div>
 
     <div class="col-12 d-flex flex-wrap gap-2 align-items-center">

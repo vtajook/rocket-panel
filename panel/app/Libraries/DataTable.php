@@ -39,6 +39,16 @@ class DataTable
         if (isset($map[$name])) {
             return $map[$name];
         }
+        // "users.username" style names: accept a selected column written with its table
+        if (strpos($name, '.') !== false) {
+            $plain = substr($name, strrpos($name, '.') + 1);
+            if (in_array($name, $map, true)) {
+                return $name;
+            }
+            if (isset($map[$plain]) && preg_match('/^[A-Za-z0-9_]+\.[A-Za-z0-9_]+$/', $name)) {
+                return $map[$plain];
+            }
+        }
         if ($this->starTable && preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $name)) {
             return $this->starTable . '.' . $name;
         }
@@ -137,7 +147,10 @@ class DataTable
         $this->filtered = true;
 
         $columns = isset($this->postData['columns']) && is_array($this->postData['columns']) ? $this->postData['columns'] : [];
-        $sSearch = isset($this->postData['search']['value']) ? trim((string) $this->postData['search']['value']) : '';
+        $searchArg = isset($this->postData['search']) ? $this->postData['search'] : '';
+        $sSearch = is_array($searchArg)
+            ? (isset($searchArg['value']) ? trim((string) $searchArg['value']) : '')
+            : trim((string) $searchArg);
         if ($sSearch === '') {
             return;
         }
@@ -150,6 +163,10 @@ class DataTable
             if (isset($column['searchable']) && $column['searchable'] == 'true' && $field) {
                 $fields[] = $field;
             }
+        }
+        if (!$fields && isset($map['username'])) {
+            // a search text with no usable column list: look in the account name
+            $fields[] = $map['username'];
         }
         if (!$fields) {
             return;

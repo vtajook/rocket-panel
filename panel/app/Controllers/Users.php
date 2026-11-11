@@ -176,10 +176,23 @@ class Users extends BaseController
         return $this->renderAjxView($viewData);
     }
 
+    /**
+     * The bot may send the cap in bytes instead of GB (0.049 GB arrives as 52613349).
+     * No real plan is above a million GB, so such a value is read as bytes.
+     */
+    private function normalizeTraffic($pdata)
+    {
+        if (is_array($pdata) && isset($pdata['traffic']) && is_numeric($pdata['traffic']) && (float) $pdata['traffic'] > 1000000) {
+            $pdata['traffic'] = round((float) $pdata['traffic'] / 1073741824, 6);
+        }
+        return $pdata;
+    }
+
     public function ajaxAddUser($request, $response, $args)
     {
         $uid       = $request->getAttribute('uid');
         $pdata     = $request->getParsedBody();
+        $pdata     = $this->normalizeTraffic($pdata);
         $agent     = $this->agent();
 
         try {
@@ -267,6 +280,7 @@ class Users extends BaseController
         $editId    = $args["id"];
         $uid       = $request->getAttribute('uid');
         $pdata     = $request->getParsedBody();
+        $pdata     = $this->normalizeTraffic($pdata);
         $agent     = $this->agent();
         $result    = \App\Validations\Users::save($pdata, $editId);
         if ($result["status"] == "error") {

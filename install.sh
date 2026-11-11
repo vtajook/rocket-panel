@@ -39,7 +39,7 @@ valid_port() { [[ "$1" =~ ^[0-9]+$ ]] && [ "$1" -ge 1 ] && [ "$1" -le 65535 ]; }
 
 ask() { # ask VAR "text" default
     local __v="$1" text="$2" def="$3" ans
-    read -r -p "$text [$def]: " ans
+    read -r -p "$text [$def]: " ans || exit 1
     printf -v "$__v" '%s' "${ans:-$def}"
 }
 
@@ -436,7 +436,7 @@ do_install() {
         if [ -n "$au" ]; then read -r -p "Panel admin password: " ap; [ -z "$ap" ] && { red "Password required"; return 1; }; fi
     else
         ask au "Panel admin username" "admin"
-        while true; do read -r -p "Panel admin password: " ap; [ ${#ap} -ge 4 ] && break; red "At least 4 characters"; done
+        while true; do read -r -p "Panel admin password: " ap || exit 1; [ ${#ap} -ge 4 ] && break; red "At least 4 characters"; done
     fi
     [[ "$au" =~ ^[A-Za-z0-9_.-]*$ ]] || { red "Username: letters, digits, _ . - only"; return 1; }
     [[ "$ap" != *"'"* && "$ap" != *'\'* ]] || { red "Password must not contain ' or \\"; return 1; }
@@ -542,7 +542,7 @@ menu() {
         echo "3) Change panel username / password"
         echo "4) Uninstall"
         echo "0) Exit"
-        read -r -p "Choose: " c
+        read -r -p "Choose: " c || exit 0
         case "$c" in
             1) do_update ;;
             2) do_install ;;

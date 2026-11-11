@@ -34,7 +34,66 @@ class UserShell
         return   $online;
     }
 
+    /**
+     * Online accounts. Fast path: one `ss` call, the account of each sshd process is read from
+     * /proc (lsof walks every open file of every process and was the heaviest part of the cron).
+     * Falls back to the lsof method when ss is not allowed.
+     */
     public static function onlineUsers()
+    {
+        $port = (int) getenv("PORT_SSH");
+        if ($port >= 1) {
+            $text = self::shellExec("sudo -n ss -H -tnp state established '( sport = :$port )' 2>/dev/null; echo __RC:\$?");
+            if (is_string($text) && preg_match('/__RC:0\s*$/', $text)) {
+                return self::parseOnlineSs($text);
+            }
+        }
+        return self::onlineUsersLsof();
+    }
+
+    public static function parseOnlineSs($text, $uidResolver = null)
+    {
+        $online = [];
+        $skip   = ["sshd" => 1, "SSHD" => 1];
+        foreach (preg_split("/\r\n|\n|\r/", (string) $text) as $line) {
+            if (strpos($line, 'users:') === false || !preg_match_all('/pid=(\d+)/', $line, $m)) {
+                continue;
+            }
+            $cols = preg_split('/\s+/', trim(substr($line, 0, strpos($line, 'users:'))));
+            $peer = end($cols);
+            if ($peer === false || ($c = strrpos($peer, ':')) === false) {
+                continue;
+            }
+            $ip = trim(substr($peer, 0, $c), '[]');
+            if (stripos($ip, '::ffff:') === 0) {
+                $ip = substr($ip, 7);
+            }
+            foreach (array_unique($m[1]) as $pid) {
+                $name = $uidResolver ? call_user_func($uidResolver, $pid) : self::pidUser($pid);
+                if ($name === null || $name === 'root' || isset($skip[$name])) {
+                    continue;
+                }
+                $online[$name][] = ["ip" => $ip, "pid" => (string) $pid];
+                break;   // the unprivileged sshd of this connection found
+            }
+        }
+        return $online;
+    }
+
+    private static function pidUser($pid)
+    {
+        $status = @file_get_contents("/proc/" . (int) $pid . "/status");
+        if ($status === false || !preg_match('/^Uid:\s+(\d+)/m', $status, $m)) {
+            return null;
+        }
+        if ((int) $m[1] === 0) {
+            return 'root';
+        }
+        $pw = function_exists('posix_getpwuid') ? @posix_getpwuid((int) $m[1]) : false;
+        return $pw ? $pw['name'] : null;
+    }
+
+    public static function onlineUsersLsof()
     {
         $onlineUsers = [];
         $sshPort = getenv("PORT_SSH");

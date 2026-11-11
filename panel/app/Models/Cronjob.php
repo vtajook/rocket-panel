@@ -40,34 +40,36 @@ class Cronjob extends \App\Models\BaseModel
 
         $lastExecutionFile =  PATH_STORAGE . DS . "cron.json";
 
-        foreach ($schedules as $key => $interval) {
-
-            $lastExecutionTime = 0;
-            if (file_exists($lastExecutionFile)) {
-                $fileContent        = file_get_contents($lastExecutionFile);
-                if (!empty($fileContent)) {
-                    $data               = json_decode($fileContent, true);
-                    $lastExecutionTime  = $data[$key] ?? 0;
-                }
+        // read the schedule state once per tick (was once per task)
+        $data = [];
+        if (is_file($lastExecutionFile)) {
+            $decoded = json_decode((string) @file_get_contents($lastExecutionFile), true);
+            if (is_array($decoded)) {
+                $data = $decoded;
             }
+        }
 
-            $currentTime = time();
+        $currentTime = time();
+        $changed     = false;
 
-            // Check if it's time to execute based on the interval
+        foreach ($schedules as $key => $interval) {
+            $lastExecutionTime = isset($data[$key]) ? (int) $data[$key] : 0;
+
             if ($currentTime - $lastExecutionTime >= $interval) {
                 $data[$key] = $currentTime;
+                $changed    = true;
                 try {
                     $this->$key();
                 } catch (\Throwable $e) {
                     // one failing task must not stop the others
                     @error_log("cron {$key}: " . $e->getMessage());
                 }
-
-                //save
-                @file_put_contents($lastExecutionFile, json_encode($data));
-
                 echo "Process '{$key}' executed at " . date('Y-m-d H:i:s') . "\n";
             }
+        }
+
+        if ($changed) {
+            @file_put_contents($lastExecutionFile, json_encode($data), LOCK_EX);
         }
     }
 
@@ -225,16 +227,23 @@ class Cronjob extends \App\Models\BaseModel
             if ($dl + $ul < 0.0005) {
                 continue;
             }
-            $q = db("traffics")->where("username", $username);
-            if ($q->count()) {
-                $q->update([
-                    "download" => new \Illuminate\Database\Query\Expression(sprintf("download + %.6F", $dl)),
-                    "upload"   => new \Illuminate\Database\Query\Expression(sprintf("upload + %.6F", $ul)),
-                    "total"    => new \Illuminate\Database\Query\Expression(sprintf("total + %.6F", $dl + $ul)),
-                    "utime"    => $now,
-                ]);
-            } else {
-                db("traffics")->insert(["username" => $username, "download" => $dl, "upload" => $ul, "total" => $dl + $ul, "ctime" => $now, "utime" => 0]);
+            $n = db("traffics")->where("username", $username)->update([
+                "download" => new \Illuminate\Database\Query\Expression(sprintf("download + %.6F", $dl)),
+                "upload"   => new \Illuminate\Database\Query\Expression(sprintf("upload + %.6F", $ul)),
+                "total"    => new \Illuminate\Database\Query\Expression(sprintf("total + %.6F", $dl + $ul)),
+                "utime"    => $now,
+            ]);
+            if (!$n) {
+                try {
+                    db("traffics")->insert(["username" => $username, "download" => $dl, "upload" => $ul, "total" => $dl + $ul, "ctime" => $now, "utime" => 0]);
+                } catch (\Throwable $e) {
+                    // row created by a parallel run: add to it instead
+                    db("traffics")->where("username", $username)->update([
+                        "download" => new \Illuminate\Database\Query\Expression(sprintf("download + %.6F", $dl)),
+                        "upload"   => new \Illuminate\Database\Query\Expression(sprintf("upload + %.6F", $ul)),
+                        "total"    => new \Illuminate\Database\Query\Expression(sprintf("total + %.6F", $dl + $ul)),
+                    ]);
+                }
             }
         }
     }
@@ -337,42 +346,29 @@ class Cronjob extends \App\Models\BaseModel
 
     public function expiredUsers()
     {
-        $uModel         = new Users();
-        $activeUsers    = $uModel->activeUsers();
+        // only the accounts that really are over (date or traffic), picked by the database
+        $rows = db('users')
+            ->leftJoin('traffics', 'traffics.username', '=', 'users.username')
+            ->where('users.status', 'active')
+            ->where('users.start_date', '>', 0)
+            ->where(function ($q) {
+                $q->where('users.end_date', '<', time())
+                  ->orWhere(function ($q2) {
+                      $q2->where('users.traffic', '>', 0)->whereRaw('cp_traffics.total > cp_users.traffic');
+                  });
+            })
+            ->select('users.id', 'users.username', 'users.traffic', 'traffics.total as consumer_traffic')
+            ->limit(500)->get();
 
-        if ($activeUsers) {
-            foreach ($activeUsers as $user) {
-                $userId         = $user->id;
-                $username       = $user->username;
-                $totalTraffic   = $user->traffic;
-                $cTraffic       = $user->consumer_traffic;
-                $cTraffic       = $cTraffic ? $cTraffic : 0;
-
-                $endDate        = $user->end_date;
-                $startDate      = $user->start_date;
-
-                if ($startDate) {
-                    $isReset = false;
-                    if (time() > $endDate) {
-                        $isReset = true;
-                    }
-
-                    if (!$isReset) {
-                        if ($totalTraffic && ($cTraffic > $totalTraffic)) {
-                            $isReset = true;
-                        }
-                    }
-
-                    if ($isReset) {
-                        UserShell::deactivateUser($username);
-                        if ($cTraffic >= $totalTraffic) {
-                            $uModel->updateStatus($userId, "expiry_traffic");
-                        } else {
-                            $uModel->updateStatus($userId, "expiry_date");
-                        }
-                    }
-                }
-            }
+        if (!$rows || !count($rows)) {
+            return;
+        }
+        $uModel = new Users();
+        foreach ($rows as $user) {
+            $totalTraffic = $user->traffic;
+            $cTraffic     = $user->consumer_traffic ? $user->consumer_traffic : 0;
+            UserShell::deactivateUser($user->username);
+            $uModel->updateStatus($user->id, ($totalTraffic && $cTraffic >= $totalTraffic) ? "expiry_traffic" : "expiry_date");
         }
     }
 }

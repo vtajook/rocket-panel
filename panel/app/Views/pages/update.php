@@ -13,12 +13,14 @@
         <?php if ($hasUpdate) { ?>
             <div class="alert alert-info">نسخه جدید موجود است.</div>
         <?php } else { ?>
-            <div class="alert alert-success">پنل به‌روز است (می‌توانید دوباره هم بروزرسانی کنید).</div>
+            <div class="alert alert-success">✅ آخرین نسخه نصب است؛ نیازی به بروزرسانی نیست.</div>
         <?php } ?>
         <p class="text-body-secondary small">
             فقط فایل‌های پنل جایگزین می‌شوند. کاربران، تنظیمات، دیتابیس و اتصال‌های SSH دست نمی‌خورند و هیچ کاربری قطع نمی‌شود.
         </p>
-        <button class="btn btn-primary" id="btn-run-update" <?= $toolReady ? "" : "disabled" ?>>بروزرسانی پنل</button>
+        <?php if ($hasUpdate || $remote === '') { ?>
+            <button class="btn btn-primary" id="btn-run-update" <?= $toolReady ? "" : "disabled" ?>>بروزرسانی پنل</button>
+        <?php } ?>
         <?php if (!$toolReady) { ?>
             <div class="text-danger small mt-2">ابزار بروزرسانی نصب نیست؛ یک بار دستور نصب (install.sh) را اجرا کنید و گزینه نصب/بروزرسانی را بزنید.</div>
         <?php } ?>

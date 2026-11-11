@@ -63,6 +63,17 @@ class Dashboard extends BaseController
         $this->render($viewData);
     }
 
+    /** how many of these resellers' accounts are connected right now */
+    private function onlineOf($ownerUsernames)
+    {
+        $online = getLocalOnlienUsers() ?: [];
+        if (!$online || !$ownerUsernames) {
+            return 0;
+        }
+        return (int) db('users')->whereIn('admin_uname', $ownerUsernames)
+            ->whereIn('username', array_keys($online))->count();
+    }
+
     private function resellerDashboard($viewData, $userInfo)
     {
         $me    = \App\Agency\Agency::me($userInfo);
@@ -83,7 +94,7 @@ class Dashboard extends BaseController
             "active"    => (clone $users)->where('status', 'active')->count(),
             "expired"   => (clone $users)->whereIn('status', ['expiry_date', 'expiry_traffic'])->count(),
             "soon"      => (clone $users)->where('status', 'active')->where('end_date', '>', $now)->where('end_date', '<', $now + 3 * 86400)->count(),
-            "online"    => count(array_intersect_key(getLocalOnlienUsers() ?: [], array_flip($scope))),
+            "online"    => $this->onlineOf($scope),
             "today"     => $sales(strtotime('today')),
             "week"      => $sales($now - 7 * 86400),
             "month"     => $sales($now - 30 * 86400),

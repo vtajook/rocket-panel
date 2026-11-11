@@ -358,7 +358,7 @@ function netmodLink($userInfo, $remark = null)
 {
     $remark = $remark === null ? $userInfo->username : $remark;
     return "ssh://" . rawurlencode($userInfo->username) . ":" . rawurlencode($userInfo->password)
-        . "@" . getServerName() . ":" . getenv("PORT_SSH") . "#" . rawurlencode($remark);
+        . "@" . configHost() . ":" . getenv("PORT_SSH") . "#" . rawurlencode($remark);
 }
 
 /** link for NPV Tunnel: npvt-ssh:// + base64 of the profile (text fields are wrapped as "npvs1:" + base64) */
@@ -371,7 +371,7 @@ function npvLink($userInfo, $remark = null)
     $profile = [
         "sshConfigType"           => $enc("SSH-Direct"),
         "remarks"                 => $enc($remark),
-        "sshHost"                 => $enc(getServerName()),
+        "sshHost"                 => $enc(configHost()),
         "sshPort"                 => (int) getenv("PORT_SSH"),
         "sshUsername"             => $enc($userInfo->username),
         "sshPassword"             => $enc($userInfo->password),
@@ -555,6 +555,26 @@ function githubLastVersion()
     return $ok(@file_get_contents($url . (strpos($url, '?') === false ? '?' : '&') . 't=' . time(), false, $context));
 }
 
+/** address given to customers inside configs: the "fake address" setting if filled in, otherwise this server */
+function configHost()
+{
+    static $cached = null;
+    if ($cached === null) {
+        $cached = "";
+        try {
+            $u = trim((string) \App\Models\Settings::getSetting("fake_url"));
+            if ($u !== "") {
+                $h = parse_url(preg_match('~^[a-z]+://~i', $u) ? $u : "http://" . $u, PHP_URL_HOST);
+                if ($h && preg_match('~^[A-Za-z0-9.-]+$~', $h)) {
+                    $cached = $h;
+                }
+            }
+        } catch (\Throwable $e) {
+        }
+    }
+    return $cached !== "" ? $cached : getServerName();
+}
+
 function getServerName()
 {
     return  !empty($_SERVER["SERVER_NAME"]) ? $_SERVER["SERVER_NAME"] : getServerIp();
@@ -569,7 +589,7 @@ function getUserConfig($user)
     $baseUrl      = (isset($_SERVER['HTTPS']) ? "https://$host" : "http://$host");
     $userLink     = "$baseUrl/account/" . $user->token;
     return [
-        "host"          => $host,
+        "host"          => configHost(),
         "public_link"   => $userLink,
         "ssh_port"      => $sshPort,
         "udp_port"      => $udpPort,

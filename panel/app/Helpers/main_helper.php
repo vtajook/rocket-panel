@@ -555,14 +555,14 @@ function githubLastVersion()
     return $ok(@file_get_contents($url . (strpos($url, '?') === false ? '?' : '&') . 't=' . time(), false, $context));
 }
 
-/** address given to customers inside configs: the "fake address" setting if filled in, otherwise this server */
+/** address given to customers inside configs: the domain/IP field in settings if filled in, otherwise this server */
 function configHost()
 {
     static $cached = null;
     if ($cached === null) {
         $cached = "";
         try {
-            $u = trim((string) \App\Models\Settings::getSetting("fake_url"));
+            $u = trim((string) \App\Models\Settings::getSetting("domain_url"));
             if ($u !== "") {
                 $h = parse_url(preg_match('~^[a-z]+://~i', $u) ? $u : "http://" . $u, PHP_URL_HOST);
                 if ($h && preg_match('~^[A-Za-z0-9.-]+$~', $h)) {

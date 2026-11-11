@@ -19,7 +19,7 @@ class Settings
             'udp_port'        => ['required', 'numeric', 'min:4'],
             'multiuser'       => ['required', 'numeric', 'in:1,0'],
             'fake_url'        => ['url'],
-            'domain_url'      => ['url'],
+            'domain_url'      => ['regex:~^(https?://)?[A-Za-z0-9.-]+(:[0-9]+)?/?$~'],
         ];
 
         $validatorMsg = [
@@ -36,7 +36,7 @@ class Settings
             'multiuser.min'      => 'وضعیت چند کاربری را به صورت صحیح ارسال کنید',
 
             'fake_url.url'      => 'آدرس جعلی را به صورت صحیح وارد کنید',
-            'domain_url.url'    => 'آدرس دامنه را به صورت صحیح وارد کنید'
+            'domain_url.regex'  => 'آدرس را فقط به صورت دامنه یا IP وارد کنید (مثال: sub.example.com)'
 
         ];
 

@@ -67,19 +67,23 @@ $domainUrl      = getArrayValue($settings, "domain_url", "");
                 <small>متنی که زمان متصل شدن کاربر در نرم افزارهای موبایل نمایش داده میشود.</small>
             </div>
             <div class="form-group mb-3">
-                <label class="form-label">آدرس سایت جعلی</label>
-                <input value="<?= $fakeUrl ?>" type="url" name="fake_url" class="form-control text-end dir-ltr" placeholder="آدرس سایت جعلی را وارد کنید" />
+                <label class="form-label">آدرس سایت جعلی (صفحه‌ی ظاهری سرور)</label>
+                <input value="<?= $fakeUrl ?>" type="url" name="fake_url" class="form-control text-end dir-ltr" placeholder="https://google.com" />
+                <div class="text-body-tertiary mt-1">
+                    <?= inlineIcon("info-circle") ?>
+                    <small>فقط وقتی کسی آدرس سرور را در مرورگر باز کند به این سایت هدایت می‌شود تا سرور مشکوک به نظر نرسد. ربطی به کانفیگ مشتری ندارد.</small>
+                </div>
             </div>
         </div>
         <div class="col-lg-12">
             <div class="form-group mb-0">
-                <label class="form-label">ثبت دامنه یا تغییر آی پی </label>
-                <input value="<?= $domainUrl ?>" type="url" name="domain_url" class="form-control text-end dir-ltr" placeholder="e.g. http://sub.example.com:panelport" />
+                <label class="form-label">آدرس سرور در کانفیگ مشتری (دامنه یا IP)</label>
+                <input value="<?= $domainUrl ?>" type="text" name="domain_url" class="form-control text-end dir-ltr" placeholder="sub.example.com" />
             </div>
             <div class="text-body-tertiary mb-1">
                 <?= inlineIcon("info-circle") ?>
                 <small>
-                    این قسمت برای زمان‌هایی است که IP فعلی شما مسدود شده و نیاز به تغییر سرور ندارید. آدرس IP جدید را وارد کرده یا در صورت اتصال دامنه به IP، دامنه و پورت مربوطه را وارد کنید. این اقدام مهم برای محاسبه ترافیک و مصرف کاربران است.
+                    هر آدرسی اینجا بنویسی همان در لینک NetMod، لینک و QR مربوط به NPV و مشخصات کانفیگ به مشتری داده می‌شود (فقط اسم دامنه یا IP استفاده می‌شود، پورت SSH از بالا می‌آید). اگر IP سرور مسدود شد، دامنه یا IP جدید را اینجا وارد کن؛ خالی بگذاری آدرس خود سرور استفاده می‌شود. مثال: sub.example.com یا 1.2.3.4.
                 </small>
             </div>
         </div>

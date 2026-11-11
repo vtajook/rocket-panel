@@ -18,7 +18,7 @@ class Settings
             'ssh_port'        => ['required', 'numeric', 'min:2'],
             'udp_port'        => ['required', 'numeric', 'min:4'],
             'multiuser'       => ['required', 'numeric', 'in:1,0'],
-            'fake_url'        => ['url'],
+            'fake_url'        => ['regex:~^(local|https?://[A-Za-z0-9._:/?=%+-]+)$~i'],
             'domain_url'      => ['regex:~^(https?://)?[A-Za-z0-9.-]+(:[0-9]+)?/?$~'],
         ];
 
@@ -35,7 +35,7 @@ class Settings
             'multiuser.numeric'  => 'وضعیت چند کاربری را به صورت صحیح ارسال کنید',
             'multiuser.min'      => 'وضعیت چند کاربری را به صورت صحیح ارسال کنید',
 
-            'fake_url.url'      => 'آدرس جعلی را به صورت صحیح وارد کنید',
+            'fake_url.regex'    => 'فقط local یا آدرس کامل سایت (https://...) وارد کنید',
             'domain_url.regex'  => 'آدرس را فقط به صورت دامنه یا IP وارد کنید (مثال: sub.example.com)'
 
         ];

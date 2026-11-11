@@ -1,33 +1,49 @@
-
 <?php
-header("Access-Control-Allow-Origin: *");
-header("Access-Control-Allow-Credentials: true");
-header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
+// Port 80 front page. Shows a harmless website so the server looks like an ordinary web host.
+//  - "local" (default): a small built-in company website from the decoy/ folder (nothing leaves the server)
+//  - an http(s) address: that site's page is fetched and shown
+// The choice is saved by the panel (Settings) in panel/storage/fake_site.txt, so updates never reset it.
 
 function curl_get_contents($url)
 {
     $ch = curl_init();
-    $header[0] = "Accept: text/xml,application/xml,application/xhtml+xml,font/woff,font/woff2,";
-    $header[0] .= "text/html;q=0.9,text/plain;q=0.8,image/png,*/*;q=0.5,application/font-woff,*";
-    $header[] = "Access-Control-Allow-Origin: *";
-    $header[] = "Connection: keep-alive";
-    $header[] = "Keep-Alive: 300";
-    $header[] = "Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.7";
-    $header[] = "Accept-Language: en-us,en;q=0.5";
-    curl_setopt($ch, CURLOPT_HTTPHEADER, $header);
-
+    curl_setopt($ch, CURLOPT_HTTPHEADER, ["Accept: text/html,application/xhtml+xml;q=0.9,*/*;q=0.5", "Accept-Language: en-us,en;q=0.5"]);
     curl_setopt($ch, CURLOPT_HEADER, 0);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, 1);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 10);
     curl_setopt($ch, CURLOPT_URL, $url);
-
-    // I have added below two lines
     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
     curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
-
     $data = curl_exec($ch);
     curl_close($ch);
-
     return $data;
 }
-$site = "https://google.com";
-echo curl_get_contents("$site");
+
+$site = "local";
+$cfg  = __DIR__ . "/panel/storage/fake_site.txt";
+if (is_file($cfg)) {
+    $v = trim((string) @file_get_contents($cfg));
+    if ($v !== "") {
+        $site = $v;
+    }
+}
+
+if (preg_match('~^https?://~i', $site)) {
+    echo curl_get_contents($site);
+    exit;
+}
+
+$dir   = __DIR__ . "/decoy";
+$pages = ["services", "about", "contact"];
+$p     = isset($_GET["p"]) ? (string) $_GET["p"] : "";
+$path  = parse_url(isset($_SERVER["REQUEST_URI"]) ? $_SERVER["REQUEST_URI"] : "/", PHP_URL_PATH);
+header("Content-Type: text/html; charset=utf-8");
+if (in_array($p, $pages, true)) {
+    readfile($dir . "/" . $p . ".html");
+} elseif ($p === "" && ($path === "/" || $path === "/index.php" || $path === "")) {
+    readfile($dir . "/index.html");
+} else {
+    http_response_code(404);
+    readfile($dir . "/404.html");
+}

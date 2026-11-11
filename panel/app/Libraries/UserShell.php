@@ -551,16 +551,18 @@ class UserShell
     }
 
 
+    /** what port 80 shows: "local" (built-in website) or an http(s) address; read by /var/www/html/index.php */
     public static function updateFakeUrl($newSite)
     {
-        $phpFilePath = "/var/www/html/index.php"; // Replace with your PHP file path
-        if (!preg_match('~^https?://[A-Za-z0-9._:/?=%+-]+$~', (string) $newSite)) {
+        $newSite = trim((string) $newSite);
+        if ($newSite === "" || strtolower($newSite) === "local") {
+            $newSite = "local";
+        } elseif (!preg_match('~^https?://[A-Za-z0-9._:/?=%+-]+$~', $newSite)) {
             return;
         }
-
-        // Prepare the sed command with sudo to modify the PHP file
-        $sedCommand = "sudo sed -i 's#\\\$site = \".*\";#\\\$site = \"$newSite\";#' $phpFilePath";
-        self::shellExec($sedCommand);
+        if (!isDevMode()) {
+            @file_put_contents(PATH_STORAGE . DS . "fake_site.txt", $newSite);
+        }
     }
 
 

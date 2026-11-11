@@ -53,7 +53,7 @@ class Settings extends \App\Models\BaseModel
                         UserShell::updateDomainUrl($value);
                     }
                     if ($key == "fake_url") {
-                        $url = !empty($value) ? $value : "https://google.com";
+                        $url = !empty($value) ? $value : "local";
                         UserShell::updateFakeUrl($url);
                     }
                 }

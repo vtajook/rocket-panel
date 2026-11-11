@@ -67,11 +67,11 @@ $domainUrl      = getArrayValue($settings, "domain_url", "");
                 <small>متنی که زمان متصل شدن کاربر در نرم افزارهای موبایل نمایش داده میشود.</small>
             </div>
             <div class="form-group mb-3">
-                <label class="form-label">آدرس سایت جعلی (صفحه‌ی ظاهری سرور)</label>
-                <input value="<?= $fakeUrl ?>" type="url" name="fake_url" class="form-control text-end dir-ltr" placeholder="https://google.com" />
+                <label class="form-label">سایت ظاهری سرور (جعلی)</label>
+                <input value="<?= $fakeUrl ?>" type="text" name="fake_url" class="form-control text-end dir-ltr" placeholder="local" />
                 <div class="text-body-tertiary mt-1">
                     <?= inlineIcon("info-circle") ?>
-                    <small>فقط وقتی کسی آدرس سرور را در مرورگر باز کند به این سایت هدایت می‌شود تا سرور مشکوک به نظر نرسد. ربطی به کانفیگ مشتری ندارد.</small>
+                    <small>وقتی کسی آدرس سرور (درگاه ۸۰) را در مرورگر باز کند این سایت را می‌بیند تا سرور مثل یک هاست معمولی به نظر برسد. خالی یا <b>local</b> = یک سایت شرکتی آماده که روی خود سرور اجرا می‌شود و هیچ درخواستی به بیرون نمی‌زند (پیشنهادی). یا آدرس کامل یک سایت مثل https://example.com. ربطی به کانفیگ مشتری و سرعت اتصال ندارد.</small>
                 </div>
             </div>
         </div>

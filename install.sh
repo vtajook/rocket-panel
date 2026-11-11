@@ -85,13 +85,14 @@ deploy_code() {
     (cd "$SRC/account" && tar cf - .) | (cd "$WEB/account" && tar xf -)
     (cd "$SRC/bot" && tar cf - .) | (cd "$WEB/bot" && tar xf -)
     cp -f "$SRC/index.php" "$WEB/index.php" 2>/dev/null
+    mkdir -p "$WEB/decoy" && cp -f "$SRC"/decoy/*.html "$WEB/decoy/" 2>/dev/null
     for d in cache debug logs sessions temp; do mkdir -p "$PANEL/storage/$d"; done
     [ -f "$PANEL/storage/.htaccess" ] || cp "$SRC/panel/storage/.htaccess" "$PANEL/storage/.htaccess" 2>/dev/null
     touch "$PANEL/banner.txt"
     [ -f "$PANEL/.env" ] || cp "$SRC/panel/.env.example" "$PANEL/.env"
     # force the module to re-check its tables on next request (new migrations)
     rm -f "$PANEL/storage/agency_schema.ver"
-    chown -R www-data:www-data "$PANEL" "$WEB/account" "$WEB/bot" "$WEB/index.php" 2>/dev/null
+    chown -R www-data:www-data "$PANEL" "$WEB/account" "$WEB/bot" "$WEB/index.php" "$WEB/decoy" 2>/dev/null
     install -m 0755 "$SRC/install.sh" "$TOOL.new" && mv -f "$TOOL.new" "$TOOL"
 }
 

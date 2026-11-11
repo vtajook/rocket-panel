@@ -303,7 +303,21 @@ class UserShell
         $dbPassword = getenv("DB_PASSWORD");
         $dbName     = getenv("DB_DATABASE");
 
-        self::shellExec("mysqldump -u '$dbUsername' --password='$dbPassword'  $dbName > '$filePath' ");
+        // --single-transaction: a consistent copy while the panel keeps working
+        self::shellExec("mysqldump -u '$dbUsername' --password='$dbPassword' --single-transaction --skip-lock-tables $dbName > '$filePath' 2>/dev/null");
+    }
+
+    /** a finished mysqldump ends with "-- Dump completed"; a cut-off file must never be trusted */
+    public static function isCompleteDump($filePath)
+    {
+        if (!is_file($filePath) || filesize($filePath) < 200) {
+            return false;
+        }
+        $fh = fopen($filePath, 'rb');
+        fseek($fh, max(0, filesize($filePath) - 400));
+        $tail = (string) fread($fh, 400);
+        fclose($fh);
+        return strpos($tail, '-- Dump completed') !== false;
     }
 
     public static function restoreMysqlBackup($filePath = "")
@@ -313,7 +327,8 @@ class UserShell
         $dbPassword = getenv("DB_PASSWORD");
         $dbName     = getenv("DB_DATABASE");
 
-        self::shellExec("mysql -u '$dbUsername' --password='$dbPassword' $dbName < $filePath");
+        $out = self::shellExec("mysql -u '$dbUsername' --password='$dbPassword' $dbName < '$filePath' 2>&1; echo \"__EXIT:\$?\"");
+        return is_string($out) && strpos($out, '__EXIT:0') !== false;
     }
 
     public static function createTrfficsLogFile($filePath)

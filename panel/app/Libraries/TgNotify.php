@@ -135,8 +135,8 @@ class TgNotify
         $name = (getenv('APP_NAME') ?: 'rocket') . '-' . jdate()->format('Y-m-d_H-i');
         $sql  = $dir . DS . $name . '.sql';
         \App\Libraries\UserShell::createMysqlBackup($sql);
-        if (!is_file($sql) || filesize($sql) < 200) {
-            $error = 'mysqldump failed';
+        if (!\App\Libraries\UserShell::isCompleteDump($sql)) {
+            $error = 'mysqldump failed or file incomplete';
             @unlink($sql);
             return false;
         }

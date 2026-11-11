@@ -348,8 +348,15 @@ class Settings extends BaseController
                 ]);
             }
         } else if ($importFrom == "current") {
-            $values      = $parser->getTablesData(["cp_users", "cp_traffics"]);
-            $totalInsert =  $bkModel->importSelfBackup($sqlContent, $values);
+            try {
+                $values      = $parser->getTablesData(["cp_users", "cp_traffics"]);
+                $totalInsert =  $bkModel->importSelfBackup($sqlContent, $values);
+            } catch (\Throwable $err) {
+                return $response->withStatus(400)->withJson(["messages" => $err->getMessage()]);
+            }
+            if (!$totalInsert) {
+                return $response->withStatus(400)->withJson(["messages" => "در این فایل جدول کاربران پنل (cp_users و cp_traffics) پیدا نشد. نوع پنل را درست انتخاب کنید."]);
+            }
             return $response->withStatus(200)->withJson(["total_insert" => $totalInsert]);
         }
     }
@@ -374,6 +381,10 @@ class Settings extends BaseController
         }
 
         \App\Libraries\UserShell::createMysqlBackup($backupFilePath);
+        if (!\App\Libraries\UserShell::isCompleteDump($backupFilePath)) {
+            @unlink($backupFilePath);
+            return $response->withStatus(500)->withJson(["messages" => "ساخت بکاپ کامل نشد"]);
+        }
     }
 
     public function ajaxDeleteExportFile($request, $response, $args)

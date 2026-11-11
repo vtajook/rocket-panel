@@ -9,7 +9,7 @@
             var btn = $(this).prop("disabled", true);
             $("#sync-users-msg").text("در حال ساخت...");
             $.post(baseUrl("ajax/settings/sync-users")).done(function(r) {
-                $("#sync-users-msg").text("ساخته شد: " + r.created + (r.missing > 0 ? " — باقی‌مانده: " + r.missing + " (دوباره بزنید یا صبر کنید)" : r.missing < 0 ? " (یک عملیات دیگر در حال اجراست)" : " — همه اکانت‌ها روی سرور هستند"));
+                $("#sync-users-msg").text("ساخته شد: " + r.created + (r.invalid && r.invalid.length ? " — نام نامعتبر برای سرور: " + r.invalid.join("، ") + " —" : "") + (r.missing > 0 ? " — باقی‌مانده: " + r.missing + " (دوباره بزنید یا صبر کنید)" : r.missing < 0 ? " (یک عملیات دیگر در حال اجراست)" : " — همه اکانت‌ها روی سرور هستند"));
             }).fail(function() { $("#sync-users-msg").text("خطا"); }).always(function() { btn.prop("disabled", false); });
         });
     });

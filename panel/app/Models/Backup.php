@@ -548,24 +548,89 @@ class Backup extends \App\Models\BaseModel
 
 
         if (!empty($usersValues) && !empty($traficValues)) {
+            if (strpos($sqlContent, '-- Dump completed') === false) {
+                throw new \Exception("فایل بکاپ ناقص است (انتهای فایل بریده شده). دوباره بکاپ بگیرید.");
+            }
             $backupPath     = PATH_STORAGE . DS . "backup";
             if (!is_dir($backupPath)) {
                 mkdir($backupPath);
             }
-            $backupFilePath = $backupPath . DS . "temp.sql";
-            // create temp file
-            file_put_contents($backupFilePath, $sqlContent);
 
-            \App\Libraries\UserShell::restoreMysqlBackup($backupFilePath);
-            unlink($backupFilePath);
+            // settings that belong to THIS server (ports, Telegram) survive the restore
+            $keep = [];
+            foreach (db('settings')->where(function ($q) {
+                $q->whereIn('name', ['ssh_port', 'udp_port'])->orWhere('name', 'like', 'tgb\\_%');
+            })->get() as $r) {
+                $keep[$r->name] = $r->value;
+            }
+            $myId = (int) (container()->userInfo->id ?? 0);
+
+            // safety copy of the current database, restored automatically if the import fails
+            $safe = $backupPath . DS . "before-import.sql";
+            \App\Libraries\UserShell::createMysqlBackup($safe);
+            $safeOk = \App\Libraries\UserShell::isCompleteDump($safe);
+
+            $backupFilePath = $backupPath . DS . "temp.sql";
+            file_put_contents($backupFilePath, $sqlContent);
+            $ok = \App\Libraries\UserShell::restoreMysqlBackup($backupFilePath);
+            @unlink($backupFilePath);
+
+            if (!$ok) {
+                if ($safeOk) {
+                    \App\Libraries\UserShell::restoreMysqlBackup($safe);
+                }
+                throw new \Exception("بازگردانی با خطا روبرو شد" . ($safeOk ? " و اطلاعات قبلی برگردانده شد" : ""));
+            }
 
             $this->createSysUsers();
+
+            foreach ($keep as $name => $value) {
+                $this->setSettingValue($name, $value);
+            }
+            @unlink($safe);
+            // the restored admin table starts with token_ver 0: keep this session valid
+            if ($myId) {
+                $row = db('admins')->where('id', $myId)->first();
+                if ($row && isset($row->token_ver)) {
+                    session()->set("token_ver", (int) $row->token_ver);
+                }
+            }
             return count($usersValues);
         }
 
         return 0;
     }
 
+
+    private function setSettingValue($name, $value)
+    {
+        $q = db('settings')->where('name', $name);
+        if ($q->count()) {
+            $q->update(['value' => $value]);
+        } else {
+            db('settings')->insert(['name' => $name, 'value' => $value]);
+        }
+    }
+
+    /**
+     * Names with spaces around them (seen in old backups) can never be a server user:
+     * trim them in the database when the trimmed name is free. Returns how many were fixed.
+     */
+    private function fixWhitespaceNames()
+    {
+        $fixed = 0;
+        $rows  = db('users')->whereRaw("username <> TRIM(username)")->select('id', 'username')->limit(200)->get();
+        foreach ($rows as $r) {
+            $new = trim($r->username);
+            if ($new === '' || db('users')->where('username', $new)->count()) {
+                continue;
+            }
+            db('users')->where('id', $r->id)->update(['username' => $new]);
+            db('traffics')->where('username', $r->username)->update(['username' => $new]);
+            $fixed++;
+        }
+        return $fixed;
+    }
 
     private function createSysUsers()
     {
@@ -602,8 +667,14 @@ class Backup extends \App\Models\BaseModel
             $existing[strstr($line, ":", true)] = true;
         }
 
+        try {
+            $this->fixWhitespaceNames();
+        } catch (\Throwable $e) {
+        }
+
         $created = 0;
         $missing = 0;
+        $invalid = [];
         $uModel  = new \App\Models\Users();
         foreach ((array) $uModel->activeUsers() as $user) {
             if (isset($existing[$user->username]) || (string) $user->password === '') {
@@ -618,6 +689,7 @@ class Backup extends \App\Models\BaseModel
                 $created++;
             } catch (\Exception $e) {
                 // unusual name or password: skip this account only
+                $invalid[] = $user->username;
             }
         }
 
@@ -625,6 +697,6 @@ class Backup extends \App\Models\BaseModel
             @flock($lock, LOCK_UN);
             @fclose($lock);
         }
-        return ["created" => $created, "missing" => $missing];
+        return ["created" => $created, "missing" => $missing, "invalid" => array_slice($invalid, 0, 20)];
     }
 }

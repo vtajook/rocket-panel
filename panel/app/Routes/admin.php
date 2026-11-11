@@ -11,7 +11,6 @@ $app->post('/ajax/login',                       'App\Controllers\Login:ajaxLogin
 $adminPanel = $app->group('', function () use ($app) {
 
     $app->get('/[dashboard]',                   'App\Controllers\Dashboard:index');
-    $app->get('/admins',                        'App\Controllers\Admins:index');
     $app->get('/logout',                        'App\Controllers\Users:logout');
 
 
@@ -99,12 +98,6 @@ $adminPanel = $app->group('', function () use ($app) {
             });
         });
 
-        $app->group('/admins', function () use ($app) {
-            $app->post('',                      'App\Controllers\Admins:ajaxAddUser');
-            $app->post('/list',                 'App\Controllers\Admins:ajaxUsersList');
-            $app->put('/{id}',                  'App\Controllers\Admins:ajaxEditUser');
-            $app->delete('/{id}',               'App\Controllers\Admins:ajaxDeleteUser');
-        });
 
         $app->group('/pages', function () use ($app) {
             $app->get('/filtering',              'App\Controllers\Pages:ajaxFilteringDate');
@@ -138,10 +131,6 @@ $adminPanel = $app->group('', function () use ($app) {
             $app->get('/bulk-add',                  'App\Controllers\Users:ajaxViewBulkAdd');
             $app->get('/{id}/edit',                 'App\Controllers\Users:ajaxViewEdit');
             $app->get('/{id}/info',                 'App\Controllers\Users:ajaxViewDetails');
-        });
-        $app->group('/admins', function () use ($app) {
-            $app->get('/add',                       'App\Controllers\Admins:ajaxViewAdd');
-            $app->get('/{id}/edit',                 'App\Controllers\Admins:ajaxViewEdit');
         });
     });
 });

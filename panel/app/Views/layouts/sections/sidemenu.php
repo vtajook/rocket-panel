@@ -38,12 +38,6 @@
                         </a>
                     </li>
                     <li>
-                        <a href="<?= baseUrl("admins") ?>" class="nav-link <?= $activeMenu == "admins" ? "active" : "link-body-emphasis" ?>">
-                            <?= inlineIcon("users-gear", "menu-icon") ?>
-                            کاربران ادمین
-                        </a>
-                    </li>
-                    <li>
                         <a href="<?= baseUrl("update") ?>" class="nav-link <?= $activeMenu == "update" ? "active" : "link-body-emphasis" ?>">
                             <?= inlineIcon("power-off", "menu-icon") ?>
                             بروزرسانی پنل

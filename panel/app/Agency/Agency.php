@@ -469,6 +469,68 @@ class Agency
         }
     }
 
+    /**
+     * Accounts ever sold per seller id. It comes from the append-only ledger, so deleting
+     * accounts (expired ones included) never lowers it; sales that were refunded/reversed
+     * are not counted. Accounts that predate the ledger are covered by the live count.
+     * @return array seller_id => count
+     */
+    public static function lifetimeCreated(array $sellerIds = null)
+    {
+        $query = db('agency_ledger as l')->where('l.kind', 'sale')->whereColumn('l.agent_id', 'l.seller_id')
+            ->whereNotExists(function ($q) {
+                $q->selectRaw('1')->from('agency_ledger as r')
+                    ->whereColumn('r.ref', 'l.sale_id')->whereIn('r.kind', ['refund', 'reversal']);
+            })
+            ->select('l.seller_id')->selectRaw('COUNT(*) as cnt')->groupBy('l.seller_id');
+        if ($sellerIds !== null) {
+            $query->whereIn('l.seller_id', $sellerIds ?: [0]);
+        }
+        $out = [];
+        foreach ($query->get() as $row) {
+            $out[(int) $row->seller_id] = (int) $row->cnt;
+        }
+        return $out;
+    }
+
+    /**
+     * Accounts an agent already had before the ledger counted sales. Frozen the first time it is
+     * needed (live accounts - sales already in the ledger), so later deletions cannot lower the total.
+     */
+    private static function lifetimeBase($agentId, $ledgerOwn)
+    {
+        $file = PATH_STORAGE . DS . 'lifetime_base.json';
+        $data = @json_decode((string) @file_get_contents($file), true);
+        $data = is_array($data) ? $data : [];
+        if (!isset($data[$agentId])) {
+            $agent = self::find($agentId);
+            $live  = $agent ? (int) db('users')->where('admin_uname', $agent['username'])->count() : 0;
+            $data[$agentId] = max(0, $live - $ledgerOwn);
+            @file_put_contents($file, json_encode($data), LOCK_EX);
+        }
+        return (int) $data[$agentId];
+    }
+
+    /** lifetime created for one agent alone */
+    public static function lifetimeOwn($agentId, $map = null)
+    {
+        $map = $map === null ? self::lifetimeCreated([(int) $agentId]) : $map;
+        $own = isset($map[(int) $agentId]) ? $map[(int) $agentId] : 0;
+        return self::lifetimeBase((int) $agentId, $own) + $own;
+    }
+
+    /** lifetime created for one agent and everyone under them */
+    public static function lifetimeFor($agentId)
+    {
+        $ids = self::subtreeIds($agentId);
+        $map = self::lifetimeCreated($ids);
+        $sum = 0;
+        foreach ($ids as $id) {
+            $sum += self::lifetimeOwn($id, $map);
+        }
+        return $sum;
+    }
+
     public static function countAccounts($agentId, $onlyActive = false)
     {
         $query = db('users')->whereIn('admin_uname', self::subtreeUsernames($agentId));

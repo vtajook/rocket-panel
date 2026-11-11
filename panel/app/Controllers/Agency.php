@@ -87,6 +87,7 @@ class Agency extends BaseController
             }
         }
 
+        $ever = Core::lifetimeCreated();
         $list = [];
         foreach ($agents as $agent) {
             $uname  = $agent['username'];
@@ -96,6 +97,7 @@ class Agency extends BaseController
                 'parent'  => Core::parentOf($agent),
                 'balance' => isset($balances[$agent['id']]) ? $balances[$agent['id']] : 0,
                 'total'   => isset($total[$uname]) ? $total[$uname] : 0,
+                'ever'    => Core::lifetimeOwn($agent['id'], $ever),
                 'active'  => isset($active[$uname]) ? $active[$uname] : 0,
                 'months'  => isset($months[$uname]) ? $months[$uname] : 0,
                 'online'  => isset($online[$uname]) ? $online[$uname] : 0,
@@ -124,6 +126,7 @@ class Agency extends BaseController
             $data["balance"]  = Core::balance($agent['id']);
             $data["accounts"] = Core::countAccounts($agent['id']);
             $data["activeAccounts"] = Core::countAccounts($agent['id'], true);
+            $data["everCreated"] = Core::lifetimeFor($agent['id']);
             $data["ledger"]   = db('agency_ledger')->where('agent_id', $agent['id'])->orderBy('id', 'desc')->limit(15)->get();
             $data["activity"] = db('agency_activity')->where('actor_id', $agent['id'])->orderBy('id', 'desc')->limit(15)->get();
             $data["badges"]   = Core::statusBadges($agent);
@@ -723,7 +726,7 @@ class Agency extends BaseController
         return $this->page("my", "کیف پول و حساب من", [
             "me" => $me, "balance" => Core::balance($me['id']), "plans" => $plans,
             "perDay" => Core::unitPrice($me, 'per_day'), "perGb" => Core::unitPrice($me, 'per_gb'),
-            "accounts" => Core::countAccounts($me['id']), "activeAccounts" => Core::countAccounts($me['id'], true),
+            "accounts" => Core::countAccounts($me['id']), "activeAccounts" => Core::countAccounts($me['id'], true), "everCreated" => Core::lifetimeFor($me['id']),
             "sellBlock" => Core::sellBlockReason($me), "activeMenu" => "agency-my",
         ]);
     }

@@ -7,6 +7,7 @@ $credit = (int) Ag::limit($me, 'credit_limit');
 <div class="row g-2 mb-3">
     <div class="col-6 col-md-3"><div class="card ag-stat"><div class="card-body p-2"><div class="ag-stat-title">موجودی کیف پول</div><div class="ag-stat-value ag-num <?= $balance < 0 ? 'ag-neg' : '' ?>"><?= number_format($balance) ?> <small><?= $e($settings['currency']) ?></small></div></div></div></div>
     <div class="col-6 col-md-3"><div class="card ag-stat"><div class="card-body p-2"><div class="ag-stat-title">اکانت فعال / کل</div><div class="ag-stat-value ag-num"><?= $activeAccounts ?> / <?= $accounts ?></div></div></div></div>
+        <div class="col-6 col-md-3"><div class="card ag-stat"><div class="card-body p-2"><div class="ag-stat-title">کل ساخته‌شده تا امروز</div><div class="ag-stat-value ag-num"><?= $everCreated ?></div></div></div></div>
     <?php if ($credit > 0) { ?><div class="col-6 col-md-3"><div class="card ag-stat"><div class="card-body p-2"><div class="ag-stat-title">اعتبار (فروش نسیه)</div><div class="ag-stat-value ag-num"><?= number_format($credit) ?></div></div></div></div><?php } ?>
     <?php if ($me['expiry']) { ?><div class="col-6 col-md-3"><div class="card ag-stat"><div class="card-body p-2"><div class="ag-stat-title">پایان مهلت نمایندگی</div><div class="ag-stat-value" style="font-size:14px"><?= Ag::jdate($me['expiry']) ?></div></div></div></div><?php } ?>
 </div>

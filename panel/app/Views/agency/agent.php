@@ -30,6 +30,7 @@ $saveUrl = baseUrl('agency/save' . ($isNew ? '' : '/' . $agent['id']));
     <div class="row g-2 mb-3">
         <div class="col-6 col-md-3"><div class="card ag-stat"><div class="card-body p-2"><div class="ag-stat-title">موجودی کیف پول</div><div class="ag-stat-value ag-num <?= $balance < 0 ? 'ag-neg' : '' ?>"><?= number_format($balance) ?></div></div></div></div>
         <div class="col-6 col-md-3"><div class="card ag-stat"><div class="card-body p-2"><div class="ag-stat-title">اکانت فعال / کل</div><div class="ag-stat-value ag-num"><?= $activeAccounts ?> / <?= $accounts ?></div></div></div></div>
+        <div class="col-6 col-md-3"><div class="card ag-stat"><div class="card-body p-2"><div class="ag-stat-title">کل ساخته‌شده تا امروز</div><div class="ag-stat-value ag-num"><?= $everCreated ?></div></div></div></div>
         <div class="col-6 col-md-3"><div class="card ag-stat"><div class="card-body p-2"><div class="ag-stat-title">آخرین ورود</div><div class="ag-stat-value" style="font-size:14px"><?= Ag::jdate($agent['last_login'], true) ?></div></div></div></div>
         <div class="col-6 col-md-3"><div class="card ag-stat"><div class="card-body p-2"><div class="ag-stat-title">عضویت</div><div class="ag-stat-value" style="font-size:14px"><?= Ag::jdate($agent['ctime']) ?></div></div></div></div>
     </div>

@@ -131,7 +131,8 @@ class TgNotify
         foreach (glob($dir . DS . '*') ?: [] as $old) {
             @unlink($old);
         }
-        $name = (getenv('APP_NAME') ?: 'rocket') . '-' . self::serverIp() . '-' . date('Y-m-d_H-i');
+        // same file name and .sql extension as the panel's own backup (e.g. Rocket_SSH-1405-08-20_02-55.sql)
+        $name = (getenv('APP_NAME') ?: 'rocket') . '-' . jdate()->format('Y-m-d_H-i');
         $sql  = $dir . DS . $name . '.sql';
         \App\Libraries\UserShell::createMysqlBackup($sql);
         if (!is_file($sql) || filesize($sql) < 200) {
@@ -139,8 +140,12 @@ class TgNotify
             @unlink($sql);
             return false;
         }
-        $gz = $sql . '.gz';
-        $in = fopen($sql, 'rb');
+        if (filesize($sql) <= 49 * 1048576) {
+            return $sql;
+        }
+        // too big for Telegram as plain text: compress (only then the extension changes)
+        $gz  = $sql . '.gz';
+        $in  = fopen($sql, 'rb');
         $out = gzopen($gz, 'wb6');
         while (!feof($in)) {
             gzwrite($out, fread($in, 1 << 20));
@@ -160,7 +165,7 @@ class TgNotify
         $users = (int) db('users')->count();
         $size  = round(filesize($file) / 1048576, 2);
         $cap   = "💾 بکاپ پنل SSH\n" . self::header() . "\n👥 کاربران: $users\n📦 {$size} MB\n🕒 " . date('Y-m-d H:i:s')
-               . "\n(فایل .gz — با gunzip باز شود و در بخش بکاپ پنل بارگذاری شود)";
+               . "" . (substr($file, -3) === '.gz' ? "\n(فایل فشرده است؛ اول با gunzip باز شود)" : "");
         if (filesize($file) > 49 * 1048576) {
             $error = 'file too big for Telegram (>49MB)';
             self::send("⚠️ بکاپ " . self::header() . " بیش از ۴۹ مگابایت است و ارسال نشد.");

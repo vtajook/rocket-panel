@@ -37,17 +37,17 @@ is_installed() { [ -f "$PANEL/.env" ] && [ -f "$PANEL/index.php" ]; }
 
 valid_port() { [[ "$1" =~ ^[0-9]+$ ]] && [ "$1" -ge 1 ] && [ "$1" -le 65535 ]; }
 
-ask() { # ask VAR "text" default
-    local __v="$1" text="$2" def="$3" ans
-    read -r -p "$text [$def]: " ans || exit 1
-    printf -v "$__v" '%s' "${ans:-$def}"
+ask() { # ask VAR "text" default   (inner names are prefixed so a caller's variable can never be shadowed)
+    local __v="$1" __t="$2" __d="$3" __a
+    read -r -p "$__t [$__d]: " __a || exit 1
+    printf -v "$__v" '%s' "${__a:-$__d}"
 }
 
 ask_port() { # ask_port VAR "text" default
-    local __v="$1" ans
+    local __v="$1" __p
     while true; do
-        ask ans "$2" "$3"
-        if valid_port "$ans"; then printf -v "$__v" '%s' "$ans"; return; fi
+        ask __p "$2" "$3"
+        if valid_port "$__p"; then printf -v "$__v" '%s' "$__p"; return; fi
         red "Invalid port"
     done
 }

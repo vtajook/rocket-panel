@@ -430,15 +430,43 @@ class UserShell
         self::userKill($username);
     }
 
+    /** does this account exist on the server? (reads /etc/passwd itself, never a cached answer) */
+    public static function userExists($username)
+    {
+        $prefix = $username . ":";
+        $fh = @fopen("/etc/passwd", "r");
+        if (!$fh) {
+            return function_exists('posix_getpwnam') && posix_getpwnam($username) !== false;
+        }
+        $found = false;
+        while (($line = fgets($fh)) !== false) {
+            if (strpos($line, $prefix) === 0) {
+                $found = true;
+                break;
+            }
+        }
+        fclose($fh);
+        return $found;
+    }
+
     public static function deleteUser($username, $permanentDel = true)
     {
         self::safeName($username);
-        // an expired / never-created account has no server user: skip five useless sudo calls
-        if (function_exists('posix_getpwnam') && posix_getpwnam($username) === false) {
+        // an expired / never-created account has no server user: skip the useless sudo calls
+        if (!self::userExists($username)) {
             return;
         }
-        self::userKill($username);
-        self::shellExec("sudo userdel -r {$username}");
+        // kill, delete, and make sure it is really gone: `userdel` refuses while a process of the
+        // account is still dying, and an account left behind could simply log in again
+        for ($try = 0; $try < 3; $try++) {
+            self::userKill($username);
+            self::shellExec($try === 0 ? "sudo userdel -r {$username}" : "sudo userdel -f -r {$username}");
+            if (isDevMode() || !self::userExists($username)) {
+                return;
+            }
+            usleep(700000);
+        }
+        @error_log("deleteUser: {$username} is still on the server after 3 tries");
     }
 
     public static function userKill($username)

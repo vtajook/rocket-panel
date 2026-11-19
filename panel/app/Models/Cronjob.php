@@ -28,7 +28,8 @@ class Cronjob extends \App\Models\BaseModel
             'appLastVersion'    => 86400,
             'tgBackup'          => 10,
             'tgUsage'           => 60,
-            'tgExpiry'          => 900
+            'tgExpiry'          => 900,
+            'reapInactive'      => 300
         ];
 
 
@@ -103,6 +104,43 @@ class Cronjob extends \App\Models\BaseModel
         (new \App\Models\Backup())->syncSysUsers(300);
     }
 
+    private function reapLog($line)
+    {
+        $f = PATH_STORAGE . DS . "reaper.log";
+        if (is_file($f) && filesize($f) > 200000) {
+            @file_put_contents($f, "");
+        }
+        @file_put_contents($f, date('Y-m-d H:i:s') . " " . $line . "\n", FILE_APPEND | LOCK_EX);
+    }
+
+    /**
+     * safety net: an expired / disabled account that is still on the server (a failed `userdel`,
+     * a restore, a manual change) is removed, so it cannot connect again
+     */
+    public function reapInactive()
+    {
+        $inPasswd = [];
+        foreach ((array) @file("/etc/passwd", FILE_IGNORE_NEW_LINES) as $line) {
+            $inPasswd[strstr($line, ":", true)] = true;
+        }
+        $budget = microtime(true) + 20;
+        $done   = 0;
+        foreach (db('users')->where('status', '!=', 'active')->select('username', 'status')->get() as $row) {
+            if (!isset($inPasswd[$row->username])) {
+                continue;
+            }
+            if ($done >= 100 || microtime(true) > $budget) {
+                break;
+            }
+            try {
+                UserShell::deleteUser($row->username);
+                $this->reapLog((UserShell::userExists($row->username) ? "COULD NOT remove" : "removed") . " leftover server user ({$row->status}): {$row->username}");
+                $done++;
+            } catch (\Throwable $e) {
+            }
+        }
+    }
+
     private function multiUser()
     {
         $multiuser   = Settings::getSetting("multiuser");
@@ -118,12 +156,22 @@ class Cronjob extends \App\Models\BaseModel
 
         // one query for every online account instead of one per account
         $rows = db('users')->whereIn('username', array_keys($onlineUsers))
-            ->select('username', 'admin_uname', 'start_date', 'expiry_days', 'limit_users')->get();
+            ->select('username', 'admin_uname', 'start_date', 'expiry_days', 'limit_users', 'status')->get();
         $frozen = array_flip(\App\Agency\Agency::frozenOwnerUsernames());
 
         foreach ($rows as $userInfo) {
             $username = $userInfo->username;
             $users    = $onlineUsers[$username];
+
+            // expired / disabled accounts must never stay connected (or come back): cut them and remove the server user
+            if ($userInfo->status !== 'active') {
+                foreach ($users as $u) {
+                    UserShell::killUser(isset($u["pid"]) ? $u["pid"] : 0);
+                }
+                UserShell::deleteUser($username);
+                $this->reapLog("online while {$userInfo->status}: {$username}");
+                continue;
+            }
 
             if (!$userInfo->start_date) {
                 $startDate = date("Y/m/d");

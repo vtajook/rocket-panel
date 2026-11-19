@@ -511,6 +511,54 @@ class Agency
         return (int) $data[$agentId];
     }
 
+    /**
+     * Sales measured in months per seller id: every account sold and every renewal adds
+     * days / 30 (2 months = 2, 3 months = 3); anything under 15 days (a test account) adds 0.
+     * Refunded / reversed sales are not counted.
+     * @return array seller_id => months
+     */
+    public static function lifetimeMonths(array $sellerIds = null)
+    {
+        $query = db('agency_ledger as l')->whereIn('l.kind', ['sale', 'renew'])->whereColumn('l.agent_id', 'l.seller_id')
+            ->whereNotExists(function ($q) {
+                $q->selectRaw('1')->from('agency_ledger as r')
+                    ->whereColumn('r.ref', 'l.sale_id')->whereIn('r.kind', ['refund', 'reversal']);
+            })
+            ->select('l.seller_id')
+            ->selectRaw('SUM(CASE WHEN cp_l.days >= 15 THEN ROUND(cp_l.days / 30.0) ELSE 0 END) as m')
+            ->groupBy('l.seller_id');
+        if ($sellerIds !== null) {
+            $query->whereIn('l.seller_id', $sellerIds ?: [0]);
+        }
+        $out = [];
+        foreach ($query->get() as $row) {
+            $out[(int) $row->seller_id] = (int) $row->m;
+        }
+        return $out;
+    }
+
+    /** months for one agent alone (accounts that predate the ledger count one month each) */
+    public static function lifetimeMonthsOwn($agentId, $monthMap, $countMap = null)
+    {
+        $countMap = $countMap === null ? self::lifetimeCreated([(int) $agentId]) : $countMap;
+        $own  = isset($countMap[(int) $agentId]) ? $countMap[(int) $agentId] : 0;
+        $base = self::lifetimeBase((int) $agentId, $own);
+        return $base + (isset($monthMap[(int) $agentId]) ? $monthMap[(int) $agentId] : 0);
+    }
+
+    /** months for one agent and everyone under them */
+    public static function lifetimeMonthsFor($agentId)
+    {
+        $ids = self::subtreeIds($agentId);
+        $months = self::lifetimeMonths($ids);
+        $counts = self::lifetimeCreated($ids);
+        $sum = 0;
+        foreach ($ids as $id) {
+            $sum += self::lifetimeMonthsOwn($id, $months, $counts);
+        }
+        return $sum;
+    }
+
     /** lifetime created for one agent alone */
     public static function lifetimeOwn($agentId, $map = null)
     {

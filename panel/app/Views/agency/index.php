@@ -14,7 +14,7 @@
                         <th>وضعیت</th>
                         <th>موجودی</th>
                         <th>اکانت (فعال / کل)</th>
-                        <th>کل ساخته‌شده تا امروز</th>
+                        <th>کل فروش (ماه)</th>
                         <th>معادل ماهانه (فعال)</th>
                         <th>آنلاین</th>
                         <th>فروش ۳۰ روز</th>
@@ -43,7 +43,7 @@
                             <td class="ag-num">
                                 <a href="<?= baseUrl('users?owner=' . urlencode($a['username'])) ?>"><?= $item['active'] ?> / <?= $item['total'] ?></a>
                             </td>
-                            <td class="ag-num"><?= $item['ever'] ?></td>
+                            <td class="ag-num"><?= $item['everMonths'] ?> <span class="ag-hint">(<?= $item['ever'] ?> اکانت)</span></td>
                         <td class="ag-num"><?= $item['months'] ?></td>
                             <td class="ag-num"><?= $item['online'] ?></td>
                             <td class="ag-num"><?= $item['sales']['cnt'] ?> <span class="ag-hint">(<?= number_format($item['sales']['paid']) ?>)</span></td>

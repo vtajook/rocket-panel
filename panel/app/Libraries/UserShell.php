@@ -28,9 +28,19 @@ class UserShell
      * /proc (lsof walks every open file of every process and was the heaviest part of the cron).
      * Falls back to the lsof method when ss is not allowed.
      */
+    /**
+     * The port sshd really listens on. It differs from PORT_SSH (the port given to customers in their links)
+     * when a TLS wrapper such as stunnel owns the public port and forwards to sshd on another one.
+     */
+    public static function sshdPort()
+    {
+        $local = (int) getenv("PORT_SSH_LOCAL");
+        return $local >= 1 ? $local : (int) getenv("PORT_SSH");
+    }
+
     public static function onlineUsers()
     {
-        $port = (int) getenv("PORT_SSH");
+        $port = self::sshdPort();
         if ($port >= 1) {
             $text = self::shellExec("sudo -n ss -H -tnp state established '( sport = :$port )' 2>/dev/null; echo __RC:\$?");
             if (is_string($text) && preg_match('/__RC:0\s*$/', $text)) {
@@ -85,7 +95,7 @@ class UserShell
     public static function onlineUsersLsof()
     {
         $onlineUsers = [];
-        $sshPort = getenv("PORT_SSH");
+        $sshPort = self::sshdPort();
 
         $output  = self::shellExec("sudo lsof -i :$sshPort -nP | grep -v root | grep ESTABLISHED");
 
@@ -527,7 +537,7 @@ class UserShell
         $command = "sudo sed -i 's/Port [0-9]*/Port $newPort/' /etc/ssh/sshd_config";
         self::shellExec($command);
 
-        $command = "sudo sed -i 's/PORT_SSH=[0-9]*/PORT_SSH=$newPort/' /var/www/html/panel/.env";
+        $command = "sudo sed -i 's/^PORT_SSH=[0-9]*/PORT_SSH=$newPort/; s/^PORT_SSH_LOCAL=[0-9]*/PORT_SSH_LOCAL=$newPort/' /var/www/html/panel/.env";
         self::shellExec($command);
 
         $command = "sudo systemctl restart sshd";

@@ -202,7 +202,7 @@ class Cronjob extends \App\Models\BaseModel
      */
     public function syncTraffic()
     {
-        $port = (int) getenv("PORT_SSH");
+        $port = UserShell::sshdPort();
         if ($port < 1) {
             return;
         }

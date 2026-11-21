@@ -57,6 +57,26 @@ port_in_use_by_other() { # port, allowed process pattern
     return 1
 }
 
+# the port sshd really listens on (empty when unknown); prefers the wanted one when sshd has several
+sshd_real_port() { # $1 = preferred
+    local all; all=$(ss -ltnp 2>/dev/null | awk '/"sshd"/ {n=split($4,a,":"); print a[n]}' | sort -un)
+    [ -z "$all" ] && return 0
+    echo "$all" | grep -qx "$1" && { echo "$1"; return 0; }
+    echo "$all" | head -1
+}
+
+# PORT_SSH = port given to customers (links); PORT_SSH_LOCAL = port sshd really listens on (used to see who is online).
+# They differ when stunnel/another wrapper owns the public port and forwards to sshd.
+sync_local_port() {
+    local pub real; pub=$(env_get PORT_SSH); real=$(sshd_real_port "$pub")
+    if [ -n "$real" ] && [ -n "$pub" ] && [ "$real" != "$pub" ]; then
+        env_set PORT_SSH_LOCAL "$real"
+        echo "sshd listens on $real, customers connect on $pub (PORT_SSH_LOCAL=$real)"
+    else
+        sed -i '/^PORT_SSH_LOCAL=/d' "$PANEL/.env" 2>/dev/null
+    fi
+}
+
 # ---------------------------------------------------------------- code download
 fetch_code() {
     TMP=$(mktemp -d)
@@ -447,7 +467,12 @@ do_install() {
     env_set PORT_SSH "$sp"; env_set PORT_UDP "$up"; env_set PORT_PANEL "$pp"
     configure_sudoers
     configure_apache "$pp" "$oldpp"
-    configure_ssh_port "$sp"
+    if port_in_use_by_other "$sp" "sshd"; then
+        yellow "Port $sp is already used by another program (stunnel?). sshd is NOT moved there; customers' links use $sp and the panel watches the real sshd port."
+    else
+        configure_ssh_port "$sp"
+    fi
+    sync_local_port
     install_udpgw "$up"
     configure_cron "$pp"
     configure_tuning
@@ -478,6 +503,7 @@ do_update() { # panel files only
     fetch_code || { echo "UPDATE-FAILED"; return 1; }
     deploy_code
     ensure_update_sudo
+    sync_local_port
     chown -R www-data:www-data "$PANEL/storage"
     # only the web server is reloaded (graceful): SSH, tunnels and logged-in users are not touched
     local pp; pp=$(env_get PORT_PANEL)

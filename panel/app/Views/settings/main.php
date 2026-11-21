@@ -6,6 +6,9 @@ $calcTraffic    = getArrayValue($settings, "calc_traffic", 0);
 $connectedText  = getArrayValue($settings, "connected_text", "");
 $fakeUrl        = getArrayValue($settings, "fake_url", "");
 $domainUrl      = getArrayValue($settings, "domain_url", "");
+$sshdReal       = \App\Libraries\UserShell::sshdPort();
+$sshdPublic     = (int) ($sshPort !== "" ? $sshPort : getenv("PORT_SSH"));
+$sshdWrapped    = $sshdReal >= 1 && $sshdPublic >= 1 && $sshdReal !== $sshdPublic;
 
 
 ?>
@@ -14,12 +17,28 @@ $domainUrl      = getArrayValue($settings, "domain_url", "");
     <div class="row">
         <div class="col-lg-6">
             <div class="form-group mb-0">
-                <label class="form-label">پورت SSH</label>
+                <label class="form-label">پورت SSH سرور (خودکار)</label>
+                <input value="<?= $sshdReal ?>" type="number" class="form-control" readonly disabled />
+            </div>
+            <div class="text-body-tertiary mb-1">
+                <?= inlineIcon("info-circle") ?>
+                <small> پورتی که خود sshd روی سرور گوش می‌دهد؛ پنل خودش پیدا می‌کند و تغییرش نمی‌دهد.</small>
+            </div>
+            <div class="form-group mb-0">
+                <label class="form-label">پورت SSH در کانفیگ مشتری</label>
                 <input value="<?= $sshPort ?>" type="number" minlength="2" name="ssh_port" class="form-control" placeholder="پورت ssh" required />
             </div>
             <div class="text-body-tertiary mb-1">
                 <?= inlineIcon("info-circle") ?>
-                <small> در صورت تغییر پورت ssh حتما دستور systemctl restart sshd را اجرا کنید.</small>
+                <small>
+                    این پورت داخل لینک‌های NetMod و NPV نوشته می‌شود.
+                    <?php if ($sshdWrapped) { ?>
+                        <b>حالت فعلی: TLS</b> (پورت کانفیگ با پورت سرور فرق دارد، یعنی stunnel یا ابزار مشابه جلوی sshd است).
+                    <?php } else { ?>
+                        <b>حالت فعلی: SSH ساده</b> (دو پورت یکی است).
+                    <?php } ?>
+                    این عدد فقط در لینک‌ها عوض می‌شود و پورت واقعی sshd را تغییر نمی‌دهد. برای عوض‌کردن پورت واقعی از منوی نصب استفاده کنید.
+                </small>
             </div>
             <div class="form-group mb-2">
                 <label class="form-label">پورت UDP (تماس)</label>

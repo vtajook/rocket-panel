@@ -559,37 +559,21 @@ class UserShell
         return ctype_digit((string) $port) && (int) $port >= 1 && (int) $port <= 65535;
     }
 
+    /**
+     * The "SSH port" setting is the port written into customers' links (PORT_SSH).
+     * It never touches sshd: the real port is found by sshdPort(), and when the two differ a TLS wrapper
+     * (stunnel) sits in front of sshd. (Rewriting sshd's Port from here broke stunnel setups on reboot.)
+     */
     public static function updateSshPort($newPort)
     {
         if (!self::validPort($newPort)) {
             return;
         }
         $newPort = (int) $newPort;
-        $old     = (int) getenv("PORT_SSH");
-
-        // saving the settings form sends this value every time: nothing to do when it did not change
-        if ($old >= 1 && $newPort === $old) {
+        if ($newPort === (int) getenv("PORT_SSH")) {
             return;
         }
-
-        // a TLS wrapper (stunnel) owns the public port and forwards to sshd on another one:
-        // only the port shown to customers changes, sshd itself must stay where it is
-        $real    = self::sshdPort();
-        $wrapped = $old >= 1 && $real >= 1 && $real !== $old;
-
         $command = "sudo sed -i 's/^PORT_SSH=[0-9]*/PORT_SSH=$newPort/' /var/www/html/panel/.env";
-        self::shellExec($command);
-        if ($wrapped) {
-            return;
-        }
-
-        $command = "sudo sed -i 's/^Port [0-9]*/Port $newPort/' /etc/ssh/sshd_config";
-        self::shellExec($command);
-
-        $command = "sudo sed -i 's/^PORT_SSH_LOCAL=[0-9]*/PORT_SSH_LOCAL=$newPort/' /var/www/html/panel/.env";
-        self::shellExec($command);
-
-        $command = "sudo systemctl restart sshd";
         self::shellExec($command);
     }
 

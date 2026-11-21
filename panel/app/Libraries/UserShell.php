@@ -31,11 +31,42 @@ class UserShell
     /**
      * The port sshd really listens on. It differs from PORT_SSH (the port given to customers in their links)
      * when a TLS wrapper such as stunnel owns the public port and forwards to sshd on another one.
+     * Found by looking at the listening sockets (cached 30s), so a changed sshd port needs no manual setting;
+     * PORT_SSH_LOCAL / PORT_SSH are only the fallback when the sockets cannot be read.
      */
     public static function sshdPort()
     {
         $local = (int) getenv("PORT_SSH_LOCAL");
-        return $local >= 1 ? $local : (int) getenv("PORT_SSH");
+        $pub   = (int) getenv("PORT_SSH");
+        $fallback = $local >= 1 ? $local : $pub;
+
+        $cache = PATH_STORAGE . DS . "sshd_port.json";
+        $c = is_file($cache) ? json_decode((string) @file_get_contents($cache), true) : null;
+        if (is_array($c) && isset($c["t"], $c["ports"], $c["pub"]) && $c["pub"] == $pub && time() - $c["t"] < 30) {
+            $ports = $c["ports"];
+        } else {
+            $ports = [];
+            $text = self::shellExec("sudo -n ss -H -ltnp 2>/dev/null; echo __RC:\$?");
+            if (is_string($text) && preg_match('/__RC:0\s*$/', $text)) {
+                foreach (explode("\n", $text) as $line) {
+                    if (strpos($line, '"sshd"') !== false && preg_match('/\s\S*:(\d+)\s/', $line, $m)) {
+                        $ports[(int) $m[1]] = (int) $m[1];
+                    }
+                }
+                $ports = array_values($ports);
+                @file_put_contents($cache, json_encode(["t" => time(), "pub" => $pub, "ports" => $ports]));
+            }
+        }
+        if (!$ports) {
+            return $fallback;
+        }
+        if ($local >= 1 && in_array($local, $ports)) {
+            return $local;
+        }
+        if (in_array($pub, $ports)) {
+            return $pub;
+        }
+        return (int) $ports[0];
     }
 
     public static function onlineUsers()

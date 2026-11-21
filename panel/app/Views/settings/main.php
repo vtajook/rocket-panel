@@ -17,12 +17,12 @@ $sshdWrapped    = $sshdReal >= 1 && $sshdPublic >= 1 && $sshdReal !== $sshdPubli
     <div class="row">
         <div class="col-lg-6">
             <div class="form-group mb-0">
-                <label class="form-label">پورت SSH سرور (خودکار)</label>
-                <input value="<?= $sshdReal ?>" type="number" class="form-control" readonly disabled />
+                <label class="form-label">پورت SSH سرور</label>
+                <input value="<?= $sshdReal ?>" type="number" minlength="2" name="sshd_port" class="form-control" placeholder="پورت واقعی sshd" />
             </div>
             <div class="text-body-tertiary mb-1">
                 <?= inlineIcon("info-circle") ?>
-                <small> پورتی که خود sshd روی سرور گوش می‌دهد؛ پنل خودش پیدا می‌کند و تغییرش نمی‌دهد.</small>
+                <small> پورتی که خود sshd روی سرور گوش می‌دهد (خودکار تشخیص داده می‌شود). با تغییر آن پنل sshd را روی پورت جدید می‌برد، تنظیمات را تست می‌کند و اگر مشکلی بود برمی‌گرداند؛ اگر stunnel جلوی آن باشد، مقصد آن را هم هماهنگ می‌کند.</small>
             </div>
             <div class="form-group mb-0">
                 <label class="form-label">پورت SSH در کانفیگ مشتری</label>
@@ -37,7 +37,7 @@ $sshdWrapped    = $sshdReal >= 1 && $sshdPublic >= 1 && $sshdReal !== $sshdPubli
                     <?php } else { ?>
                         <b>حالت فعلی: SSH ساده</b> (دو پورت یکی است).
                     <?php } ?>
-                    این عدد فقط در لینک‌ها عوض می‌شود و پورت واقعی sshd را تغییر نمی‌دهد. برای عوض‌کردن پورت واقعی از منوی نصب استفاده کنید.
+                    این عدد فقط در لینک‌ها عوض می‌شود و به sshd کاری ندارد.
                 </small>
             </div>
             <div class="form-group mb-2">

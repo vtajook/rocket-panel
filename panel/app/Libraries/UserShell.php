@@ -560,9 +560,8 @@ class UserShell
     }
 
     /**
-     * The "SSH port" setting is the port written into customers' links (PORT_SSH).
-     * It never touches sshd: the real port is found by sshdPort(), and when the two differ a TLS wrapper
-     * (stunnel) sits in front of sshd. (Rewriting sshd's Port from here broke stunnel setups on reboot.)
+     * The "SSH port in the config" setting is the port written into customers' links (PORT_SSH).
+     * It only changes that number; moving sshd itself is updateSshdPort().
      */
     public static function updateSshPort($newPort)
     {
@@ -575,6 +574,36 @@ class UserShell
         }
         $command = "sudo sed -i 's/^PORT_SSH=[0-9]*/PORT_SSH=$newPort/' /var/www/html/panel/.env";
         self::shellExec($command);
+    }
+
+    /**
+     * Moves the real sshd to $newPort with the root helper (checks the port is free, tests the sshd config,
+     * keeps a stunnel that points at sshd in step, rolls back when sshd does not come up).
+     * Returns null on success or a Persian error message.
+     */
+    public static function updateSshdPort($newPort)
+    {
+        if (!self::validPort($newPort)) {
+            return "پورت SSH سرور معتبر نیست";
+        }
+        $newPort = (int) $newPort;
+        if ($newPort === self::sshdPort() || isDevMode()) {
+            return null;
+        }
+        $out = (string) self::shellExec("sudo -n /usr/local/sbin/rocket-sshport $newPort 2>&1; echo __RC:\$?");
+        @unlink(PATH_STORAGE . DS . "sshd_port.json");
+        if (preg_match('/__RC:(\d+)\s*$/', $out, $m) && (int) $m[1] === 0) {
+            self::shellExec("sudo sed -i 's/^PORT_SSH_LOCAL=[0-9]*/PORT_SSH_LOCAL=$newPort/' /var/www/html/panel/.env");
+            return null;
+        }
+        $rc = isset($m[1]) ? (int) $m[1] : -1;
+        $why = [
+            3  => "این پورت را برنامه‌ی دیگری گرفته است",
+            4  => "تست تنظیمات sshd ردشد و تغییری اعمال نشد",
+            5  => "sshd روی پورت جدید بالا نیامد و به پورت قبلی برگشت",
+            -1 => "اسکریپت تغییر پورت پیدا نشد؛ یک بار «بروزرسانی پنل» را بزنید",
+        ];
+        return "پورت SSH سرور عوض نشد: " . (isset($why[$rc]) ? $why[$rc] : "خطای ناشناخته ($rc)") . " (سایر تنظیمات ذخیره شد)";
     }
 
 

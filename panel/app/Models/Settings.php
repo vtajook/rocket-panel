@@ -21,6 +21,7 @@ class Settings extends \App\Models\BaseModel
     {
         $validKeys = [
             "ssh_port",
+            "sshd_port",
             "udp_port",
             "multiuser",
             "fake_url",
@@ -32,8 +33,19 @@ class Settings extends \App\Models\BaseModel
         if (is_array($pdata)) {
 
             $serverIp = getServerIp();
-            
+            $error    = null;
+
+            // real sshd port: always applied as typed (not stored, the live value is read from the sockets).
+            // The "SSH port in the config" field below is independent: it is only what customers' links show.
+            $newReal = isset($pdata["sshd_port"]) ? (int) $pdata["sshd_port"] : 0;
+            if ($newReal >= 1 && $newReal !== UserShell::sshdPort()) {
+                $error = UserShell::updateSshdPort($newReal);
+            }
+
             foreach ($pdata as $key => $value) {
+                if ($key === "sshd_port") {
+                    continue;
+                }
                 if (in_array($key, $validKeys)) {
 
                     $this->updateOrCreate(['name' => $key], ["name" => $key, "value" => $value]);
@@ -58,7 +70,9 @@ class Settings extends \App\Models\BaseModel
                     }
                 }
             }
+            return $error;
         }
+        return null;
     }
 
     public function saveUsersPanel($pdata, $uid)

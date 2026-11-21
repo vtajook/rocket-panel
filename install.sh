@@ -144,7 +144,7 @@ www-data ALL=(ALL:ALL) NOPASSWD: /usr/bin/kill, /usr/bin/killall, /usr/bin/pkill
 www-data ALL=(ALL:ALL) NOPASSWD: /usr/bin/lsof, /usr/sbin/lsof, /usr/bin/ss, /usr/bin/netstat
 www-data ALL=(ALL:ALL) NOPASSWD: /usr/bin/sed, /usr/bin/rm, /usr/bin/mysqldump
 www-data ALL=(ALL:ALL) NOPASSWD: /usr/bin/systemctl restart sshd, /usr/bin/systemctl restart ssh, /usr/bin/systemctl daemon-reload, /usr/bin/systemctl restart videocall, /usr/bin/systemctl reboot
-www-data ALL=(ALL:ALL) NOPASSWD: /usr/local/sbin/rocket-panel --update
+www-data ALL=(ALL:ALL) NOPASSWD: /usr/local/sbin/rocket-panel --update, /usr/local/sbin/rocket-sshport
 EOF
     chmod 440 "$SUDOERS.new"
     if visudo -cf "$SUDOERS.new" >/dev/null 2>&1; then
@@ -465,6 +465,7 @@ do_install() {
     deploy_code
     setup_database "$au" "$ap" "$sp" "$up"
     env_set PORT_SSH "$sp"; env_set PORT_UDP "$up"; env_set PORT_PANEL "$pp"
+    install_sshport_helper
     configure_sudoers
     configure_apache "$pp" "$oldpp"
     if port_in_use_by_other "$sp" "sshd"; then
@@ -488,10 +489,51 @@ do_install() {
     echo "SSH $sp   UDPGW $up"
 }
 
+# root helper used by the panel's "SSH port of the server" field: moves sshd, keeps stunnel pointing at it, rolls back on failure
+install_sshport_helper() {
+    cat > /usr/local/sbin/rocket-sshport <<'EOF'
+#!/bin/bash
+# rocket-sshport NEW : move sshd to port NEW (and the stunnel "connect" that points at sshd). Checks first, rolls back on failure.
+new="$1"
+[[ "$new" =~ ^[0-9]+$ ]] && [ "$new" -ge 2 ] && [ "$new" -le 65535 ] || { echo "bad port"; exit 2; }
+cfg=/etc/ssh/sshd_config
+log() { echo "$(date '+%F %T') $*" >> /var/log/rocket-sshport.log; }
+cur=$(ss -ltnp 2>/dev/null | awk '/"sshd"/ {n=split($4,a,":"); print a[n]}' | sort -un | head -1)
+[ -n "$cur" ] || cur=$(grep -E '^Port[[:space:]]+[0-9]+' "$cfg" | head -1 | awk '{print $2}')
+cur=${cur:-22}
+[ "$cur" = "$new" ] && exit 0
+if ss -ltn 2>/dev/null | awk -v p=":$new\$" '$4 ~ p' | grep -q .; then log "refused $new: port in use"; echo "port in use"; exit 3; fi
+ts=$(date +%s); bak="$cfg.rocket-port.$ts.bak"; cp -a "$cfg" "$bak"
+if grep -qE '^Port[[:space:]]+[0-9]+' "$cfg"; then
+    sed -i -E "0,/^Port[[:space:]]+[0-9]+/s//Port $new/" "$cfg"
+else
+    echo "Port $new" >> "$cfg"
+fi
+sshd -t 2>/dev/null || { cp -f "$bak" "$cfg"; log "sshd -t failed for $new, restored"; echo "sshd config test failed"; exit 4; }
+stun=""
+for f in /etc/stunnel/*.conf; do
+    [ -f "$f" ] && grep -qE "^connect[[:space:]]*=[[:space:]]*127\.0\.0\.1:$cur\$" "$f" && stun="$stun $f"
+done
+for f in $stun; do cp -a "$f" "$f.rocket-port.$ts.bak"; sed -i -E "s/^(connect[[:space:]]*=[[:space:]]*127\.0\.0\.1:)$cur\$/\1$new/" "$f"; done
+apply() {
+    systemctl daemon-reload
+    if systemctl is-active --quiet ssh.socket; then systemctl restart ssh.socket; else systemctl restart ssh 2>/dev/null || systemctl restart sshd; fi
+    [ -n "$stun" ] && systemctl restart stunnel4 2>/dev/null
+}
+apply
+sleep 1
+if ss -ltn 2>/dev/null | awk -v p=":$new\$" '$4 ~ p' | grep -q .; then log "sshd moved $cur -> $new${stun:+ (stunnel:$stun)}"; exit 0; fi
+cp -f "$bak" "$cfg"; for f in $stun; do cp -f "$f.rocket-port.$ts.bak" "$f"; done
+apply
+log "sshd did not listen on $new, rolled back to $cur"; echo "rolled back"; exit 5
+EOF
+    chmod 755 /usr/local/sbin/rocket-sshport
+}
+
 # lets the panel's update button run the root updater (only this one command)
 ensure_update_sudo() {
     local f=/etc/sudoers.d/rocket-panel-update
-    printf 'www-data ALL=(root) NOPASSWD: /usr/local/sbin/rocket-panel --update, /usr/bin/ss, /usr/sbin/ss\n' > "$f.new"
+    printf 'www-data ALL=(root) NOPASSWD: /usr/local/sbin/rocket-panel --update, /usr/bin/ss, /usr/sbin/ss, /usr/local/sbin/rocket-sshport\n' > "$f.new"
     chmod 440 "$f.new"
     if visudo -cf "$f.new" >/dev/null 2>&1; then mv -f "$f.new" "$f"; else rm -f "$f.new"; red "could not install the sudo rule for the update button"; fi
 }
@@ -502,6 +544,7 @@ do_update() { # panel files only
     local ver_old; ver_old=$(cat "$PANEL/VERSION" 2>/dev/null)
     fetch_code || { echo "UPDATE-FAILED"; return 1; }
     deploy_code
+    install_sshport_helper
     ensure_update_sudo
     sync_local_port
     chown -R www-data:www-data "$PANEL/storage"

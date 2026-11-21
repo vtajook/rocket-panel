@@ -227,7 +227,10 @@ class Settings extends BaseController
         }
 
         $sModel = new \App\Models\Settings($this);
-        $sModel->saveMainSettings($pdata, $uid);
+        $err = $sModel->saveMainSettings($pdata, $uid);
+        if (!empty($err)) {
+            return $response->withStatus(400)->withJson(["status" => "error", "messages" => [$err]]);
+        }
 
         return $response->withStatus(200);
     }

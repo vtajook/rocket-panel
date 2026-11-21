@@ -16,6 +16,7 @@ class Settings
 
         $validatorRules = [
             'ssh_port'        => ['required', 'numeric', 'min:2'],
+            'sshd_port'       => ['numeric', 'min:2'],
             'udp_port'        => ['required', 'numeric', 'min:4'],
             'multiuser'       => ['required', 'numeric', 'in:1,0'],
             'fake_url'        => ['url'],
@@ -26,6 +27,9 @@ class Settings
             'ssh_port.required' => 'پورت ssh را وارد کنید',
             'ssh_port.numeric'  => 'پورت ssh را به صورت عددی وارد کنید',
             'ssh_port.min'      => 'پورت ssh حداقل باید از دورقم تشکیل شده باشد',
+
+            'sshd_port.numeric' => 'پورت SSH سرور را به صورت عددی وارد کنید',
+            'sshd_port.min'     => 'پورت SSH سرور حداقل باید از دورقم تشکیل شده باشد',
 
             'udp_port.required' => 'پورت udp را وارد کنید',
             'udp_port.numeric'  => 'پورت udp را به صورت عددی وارد کنید',
